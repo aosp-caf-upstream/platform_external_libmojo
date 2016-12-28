@@ -63,7 +63,9 @@ $$(gen_srcjar): $$(gen_cc)
 
 generated_files += $$(gen_src)
 
-LOCAL_GENERATED_SOURCES += $$(gen_cc)
+# LOCAL_GENERATED_SOURCES will filter out anything that's not a C/C++ source
+# file.
+LOCAL_GENERATED_SOURCES += $$(gen_src)
 
 endef  # define generate-mojom-source
 
@@ -75,23 +77,3 @@ LOCAL_C_INCLUDES += $(generated_sources_dir)
 
 # Also add the generated sources to the C exports.
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(generated_sources_dir)
-
-# Create a stamp file after all files have been generated.
-gen := $(generated_sources_dir)/.stamp
-$(gen) : $(generated_files)
-	$(hide) echo $^ | sed -e 's/ /\n/g' > $@
-
-# Add the stamp file as a dependency to {import,export}_includes.
-$(local-intermediates-dir)/export_includes: | $(generated_sources_dir)/.stamp
-
-ifeq ($(generated_sources_dir),$(mojo_generated_sources_dir))
-	# We are building Mojo, so both variables contain the same contents. Just add
-	# one copy to the dependencies.
-	$(local-intermediates-dir)/import_includes: | $(generated_sources_dir)/.stamp
-else
-	# Also add the Mojo generated sources dir to the includes to be able to
-	# import common modules.
-	LOCAL_C_INCLUDES += $(mojo_generated_sources_dir)
-	$(local-intermediates-dir)/import_includes: | \
-		$(generated_sources_dir)/.stamp $(mojo_generated_sources_dir)/.stamp
-endif
