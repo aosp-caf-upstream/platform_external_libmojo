@@ -647,23 +647,6 @@ void NodeController::SendPeerMessage(const ports::NodeName& name,
       DVLOG(1) << "Dropping message for unknown peer: " << name;
       return;
     }
-
-    // HACK: On ARC++ we never really need this codepath since it is always hit
-    // when RemoteMessagePipeBootstrap races against us in delivering the
-    // three-way broker handshake. If we do send the RequestIntroduction message,
-    // the broker (Chrome) won't yet know our peer, and it will cause us to drop
-    // that peer's connection, causing it to go in loops requesting for a
-    // re-introduction. Instead, let's assume that the node will eventually be
-    // introduced to us and just stick it in the queue. Note that this is only
-    // safe since ARC++ processes strictly follow a star topology, and we never
-    // pass handles between children.
-    //
-    // We need to revert this eventually when a long-term fix is ready. See
-    // b/33453258 for more details.
-    LOG(ERROR) << "Averted b/33453258 by dropping the introduction request for "
-               << name;
-    return;
-
     broker->RequestIntroduction(name);
   }
 }
