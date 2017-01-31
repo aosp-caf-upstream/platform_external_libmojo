@@ -137,12 +137,6 @@ void SetMachPortProvider(base::PortProvider* port_provider) {
 }
 #endif
 
-ScopedMessagePipeHandle CreateMessagePipe(
-    ScopedPlatformHandle platform_handle) {
-  CHECK(internal::g_process_delegate);
-  return internal::g_core->CreateMessagePipe(std::move(platform_handle));
-}
-
 ScopedMessagePipeHandle CreateParentMessagePipe(
     const std::string& token, const std::string& child_token) {
   CHECK(internal::g_process_delegate);
