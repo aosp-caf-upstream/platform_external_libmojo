@@ -111,7 +111,6 @@ LOCAL_SRC_FILES := \
 	mojo/edk/system/ports/port.cc \
 	mojo/edk/system/ports/port_ref.cc \
 	mojo/edk/system/ports_message.cc \
-	mojo/edk/system/remote_message_pipe_bootstrap.cc \
 	mojo/edk/system/request_context.cc \
 	mojo/edk/system/shared_buffer_dispatcher.cc \
 	mojo/edk/system/wait_set_dispatcher.cc \
