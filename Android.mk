@@ -15,6 +15,7 @@ LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_MOJOM_FILES := \
 	mojo/common/common_custom_types.mojom \
+	mojo/common/string16.mojom \
 	mojo/public/interfaces/bindings/interface_control_messages.mojom \
 	mojo/public/interfaces/bindings/pipe_control_messages.mojom \
 
@@ -78,6 +79,7 @@ LOCAL_SRC_FILES := \
 	mojo/android/system/base_run_loop.cc \
 	mojo/android/system/core_impl.cc \
 	mojo/edk/embedder/embedder.cc \
+	mojo/common/common_custom_types_struct_traits.cc \
 	mojo/edk/embedder/entrypoints.cc \
 	mojo/edk/embedder/platform_channel_pair.cc \
 	mojo/edk/embedder/platform_channel_pair_posix.cc \
