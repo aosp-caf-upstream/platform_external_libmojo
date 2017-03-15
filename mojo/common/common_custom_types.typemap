@@ -17,6 +17,7 @@ type_mappings = [
   "mojo.common.mojom.FilePath=base::FilePath",
   "mojo.common.mojom.DictionaryValue=base::DictionaryValue",
   "mojo.common.mojom.ListValue=base::ListValue",
+  "mojo.common.mojom.String16=base::string16",
   "mojo.common.mojom.Time=base::Time",
   "mojo.common.mojom.TimeDelta=base::TimeDelta",
   "mojo.common.mojom.TimeTicks=base::TimeTicks",
