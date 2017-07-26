@@ -21,6 +21,7 @@ namespace mojo {
 namespace edk {
 
 class NodeController;
+class PortsMessage;
 
 class MessagePipeDispatcher : public Dispatcher {
  public:

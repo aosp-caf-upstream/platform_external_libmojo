@@ -20,8 +20,8 @@ namespace android {
 JavaHandlerThread::JavaHandlerThread(const char* name) {
   JNIEnv* env = base::android::AttachCurrentThread();
 
-  java_thread_.Reset(
-      Java_JavaHandlerThread_create(env, ConvertUTF8ToJavaString(env, name)));
+  java_thread_.Reset(Java_JavaHandlerThread_create(
+      env, ConvertUTF8ToJavaString(env, name).obj()));
 }
 
 JavaHandlerThread::~JavaHandlerThread() {
@@ -35,7 +35,8 @@ void JavaHandlerThread::Start() {
   base::WaitableEvent initialize_event(
       WaitableEvent::ResetPolicy::AUTOMATIC,
       WaitableEvent::InitialState::NOT_SIGNALED);
-  Java_JavaHandlerThread_start(env, java_thread_,
+  Java_JavaHandlerThread_start(env,
+                               java_thread_.obj(),
                                reinterpret_cast<intptr_t>(this),
                                reinterpret_cast<intptr_t>(&initialize_event));
   // Wait for thread to be initialized so it is ready to be used when Start
@@ -48,7 +49,8 @@ void JavaHandlerThread::Stop() {
   JNIEnv* env = base::android::AttachCurrentThread();
   base::WaitableEvent shutdown_event(WaitableEvent::ResetPolicy::AUTOMATIC,
                                      WaitableEvent::InitialState::NOT_SIGNALED);
-  Java_JavaHandlerThread_stop(env, java_thread_,
+  Java_JavaHandlerThread_stop(env,
+                              java_thread_.obj(),
                               reinterpret_cast<intptr_t>(this),
                               reinterpret_cast<intptr_t>(&shutdown_event));
   // Wait for thread to shut down before returning.
@@ -61,23 +63,15 @@ void JavaHandlerThread::InitializeThread(JNIEnv* env,
                                          jlong event) {
   // TYPE_JAVA to get the Android java style message loop.
   message_loop_.reset(new base::MessageLoop(base::MessageLoop::TYPE_JAVA));
-  StartMessageLoop();
+  static_cast<MessageLoopForUI*>(message_loop_.get())->Start();
   reinterpret_cast<base::WaitableEvent*>(event)->Signal();
 }
 
 void JavaHandlerThread::StopThread(JNIEnv* env,
                                    const JavaParamRef<jobject>& obj,
                                    jlong event) {
-  StopMessageLoop();
-  reinterpret_cast<base::WaitableEvent*>(event)->Signal();
-}
-
-void JavaHandlerThread::StartMessageLoop() {
-  static_cast<MessageLoopForUI*>(message_loop_.get())->Start();
-}
-
-void JavaHandlerThread::StopMessageLoop() {
   static_cast<MessageLoopForUI*>(message_loop_.get())->QuitWhenIdle();
+  reinterpret_cast<base::WaitableEvent*>(event)->Signal();
 }
 
 // static

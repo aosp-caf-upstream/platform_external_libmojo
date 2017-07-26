@@ -16,6 +16,16 @@
 namespace mojo {
 namespace internal {
 
+bool ValidateEncodedPointer(const uint64_t* offset) {
+  // - Make sure |*offset| is no more than 32-bits.
+  // - Cast |offset| to uintptr_t so overflow behavior is well defined across
+  //   32-bit and 64-bit systems.
+  return *offset <= std::numeric_limits<uint32_t>::max() &&
+         (reinterpret_cast<uintptr_t>(offset) +
+              static_cast<uint32_t>(*offset) >=
+          reinterpret_cast<uintptr_t>(offset));
+}
+
 bool ValidateStructHeaderAndClaimMemory(const void* data,
                                         ValidationContext* validation_context) {
   if (!IsAligned(data)) {
@@ -46,17 +56,20 @@ bool ValidateStructHeaderAndClaimMemory(const void* data,
   return true;
 }
 
-bool ValidateNonInlinedUnionHeaderAndClaimMemory(
-    const void* data,
-    ValidationContext* validation_context) {
+bool ValidateUnionHeaderAndClaimMemory(const void* data,
+                                       bool inlined,
+                                       ValidationContext* validation_context) {
   if (!IsAligned(data)) {
     ReportValidationError(validation_context,
                           VALIDATION_ERROR_MISALIGNED_OBJECT);
     return false;
   }
 
-  if (!validation_context->ClaimMemory(data, kUnionDataSize) ||
-      *static_cast<const uint32_t*>(data) != kUnionDataSize) {
+  // If the union is inlined in another structure its memory was already
+  // claimed.
+  // This ONLY applies to the union itself, NOT anything which the union points
+  // to.
+  if (!inlined && !validation_context->ClaimMemory(data, kUnionDataSize)) {
     ReportValidationError(validation_context,
                           VALIDATION_ERROR_ILLEGAL_MEMORY_RANGE);
     return false;
@@ -100,12 +113,41 @@ bool ValidateMessageIsResponse(const Message* message,
   return true;
 }
 
-bool IsHandleOrInterfaceValid(const AssociatedInterface_Data& input) {
-  return input.handle.is_valid();
+bool ValidateControlRequest(const Message* message,
+                            ValidationContext* validation_context) {
+  switch (message->header()->name) {
+    case kRunMessageId:
+      return ValidateMessageIsRequestExpectingResponse(message,
+                                                       validation_context) &&
+             ValidateMessagePayload<RunMessageParams_Data>(message,
+                                                           validation_context);
+    case kRunOrClosePipeMessageId:
+      return ValidateMessageIsRequestWithoutResponse(message,
+                                                     validation_context) &&
+          ValidateMessagePayload<RunOrClosePipeMessageParams_Data>(
+              message, validation_context);
+  }
+  return false;
 }
 
-bool IsHandleOrInterfaceValid(const AssociatedEndpointHandle_Data& input) {
-  return input.is_valid();
+bool ValidateControlResponse(const Message* message,
+                             ValidationContext* validation_context) {
+  if (!ValidateMessageIsResponse(message, validation_context))
+    return false;
+  switch (message->header()->name) {
+    case kRunMessageId:
+      return ValidateMessagePayload<RunResponseMessageParams_Data>(
+          message, validation_context);
+  }
+  return false;
+}
+
+bool IsHandleOrInterfaceValid(const AssociatedInterface_Data& input) {
+  return IsValidInterfaceId(input.interface_id);
+}
+
+bool IsHandleOrInterfaceValid(const AssociatedInterfaceRequest_Data& input) {
+  return IsValidInterfaceId(input.interface_id);
 }
 
 bool IsHandleOrInterfaceValid(const Interface_Data& input) {
@@ -130,7 +172,7 @@ bool ValidateHandleOrInterfaceNonNullable(
 }
 
 bool ValidateHandleOrInterfaceNonNullable(
-    const AssociatedEndpointHandle_Data& input,
+    const AssociatedInterfaceRequest_Data& input,
     const char* error_message,
     ValidationContext* validation_context) {
   if (IsHandleOrInterfaceValid(input))
@@ -170,7 +212,7 @@ bool ValidateHandleOrInterfaceNonNullable(
 
 bool ValidateHandleOrInterface(const AssociatedInterface_Data& input,
                                ValidationContext* validation_context) {
-  if (validation_context->ClaimAssociatedEndpointHandle(input.handle))
+  if (!IsMasterInterfaceId(input.interface_id))
     return true;
 
   ReportValidationError(validation_context,
@@ -178,9 +220,9 @@ bool ValidateHandleOrInterface(const AssociatedInterface_Data& input,
   return false;
 }
 
-bool ValidateHandleOrInterface(const AssociatedEndpointHandle_Data& input,
+bool ValidateHandleOrInterface(const AssociatedInterfaceRequest_Data& input,
                                ValidationContext* validation_context) {
-  if (validation_context->ClaimAssociatedEndpointHandle(input))
+  if (!IsMasterInterfaceId(input.interface_id))
     return true;
 
   ReportValidationError(validation_context,

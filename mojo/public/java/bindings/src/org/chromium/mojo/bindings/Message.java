@@ -29,7 +29,7 @@ public class Message {
     /**
      * This message interpreted as a message for a mojo service with an appropriate header.
      */
-    private ServiceMessage mWithHeader;
+    private ServiceMessage mWithHeader = null;
 
     /**
      * Constructor.

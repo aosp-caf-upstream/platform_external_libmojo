@@ -23,7 +23,6 @@ struct StructWithTraits {
   string f_string;
   string f_string2;
   array<string> f_string_array;
-  array<string> f_string_set;
   NestedStructWithTraits f_struct;
   array<NestedStructWithTraits> f_struct_array;
   map<string, NestedStructWithTraits> f_struct_map;
@@ -34,50 +33,28 @@ struct StructWithTraitsContainer {
   StructWithTraits f_struct;
 };
 
-// Maps to a pass-by-value trivial struct.
-struct TrivialStructWithTraits {
-  int32 value;
-};
-
-// Maps to a move-only struct.
-struct MoveOnlyStructWithTraits {
+struct PassByValueStructWithTraits {
   handle f_handle;
 };
 
-// The custom type for MoveOnlyStructWithTraits is not clonable. Test that
+// The custom type for PassByValueStructWithTraits is not clonable. Test that
 // this container can compile as long as Clone() is not used.
-struct MoveOnlyStructWithTraitsContainer {
-  MoveOnlyStructWithTraits f_struct;
+struct PassByValueStructWithTraitsContainer {
+  PassByValueStructWithTraits f_struct;
 };
 
-struct StructWithTraitsForUniquePtr {
+struct StructWithTraitsForUniquePtrTest {
   int32 f_int32;
-};
-
-union UnionWithTraits {
-  int32 f_int32;
-  NestedStructWithTraits f_struct;
 };
 
 interface TraitsTestService {
   EchoStructWithTraits(StructWithTraits s) => (StructWithTraits passed);
 
-  EchoTrivialStructWithTraits(TrivialStructWithTraits s) =>
-      (TrivialStructWithTraits passed);
-
-  EchoMoveOnlyStructWithTraits(MoveOnlyStructWithTraits s) =>
-      (MoveOnlyStructWithTraits passed);
-
-  EchoNullableMoveOnlyStructWithTraits(MoveOnlyStructWithTraits? s) =>
-      (MoveOnlyStructWithTraits? passed);
+  EchoPassByValueStructWithTraits(PassByValueStructWithTraits s) =>
+      (PassByValueStructWithTraits passed);
 
   EchoEnumWithTraits(EnumWithTraits e) => (EnumWithTraits passed);
 
-  EchoStructWithTraitsForUniquePtr(StructWithTraitsForUniquePtr e) => (
-      StructWithTraitsForUniquePtr passed);
-
-  EchoNullableStructWithTraitsForUniquePtr(StructWithTraitsForUniquePtr? e) => (
-      StructWithTraitsForUniquePtr? passed);
-
-  EchoUnionWithTraits(UnionWithTraits u) => (UnionWithTraits passed);
+  EchoStructWithTraitsForUniquePtrTest(StructWithTraitsForUniquePtrTest e) => (
+      StructWithTraitsForUniquePtrTest passed);
 };

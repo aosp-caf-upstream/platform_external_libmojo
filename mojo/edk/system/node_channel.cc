@@ -47,7 +47,6 @@ enum class MessageType : uint32_t {
 #if defined(OS_WIN) || (defined(OS_MACOSX) && !defined(OS_IOS))
   PORTS_MESSAGE_FROM_RELAY,
 #endif
-  ACCEPT_PEER,
 };
 
 struct Header {
@@ -55,8 +54,8 @@ struct Header {
   uint32_t padding;
 };
 
-static_assert(IsAlignedForChannelMessage(sizeof(Header)),
-              "Invalid header size.");
+static_assert(sizeof(Header) % kChannelMessageAlignment == 0,
+    "Invalid header size.");
 
 struct AcceptChildData {
   ports::NodeName parent_name;
@@ -66,12 +65,6 @@ struct AcceptChildData {
 struct AcceptParentData {
   ports::NodeName token;
   ports::NodeName child_name;
-};
-
-struct AcceptPeerData {
-  ports::NodeName token;
-  ports::NodeName peer_name;
-  ports::PortName port_name;
 };
 
 // This message may include a process handle on plaforms that require it.
@@ -160,14 +153,14 @@ bool GetMessagePayload(const void* bytes,
 // static
 scoped_refptr<NodeChannel> NodeChannel::Create(
     Delegate* delegate,
-    ConnectionParams connection_params,
+    ScopedPlatformHandle platform_handle,
     scoped_refptr<base::TaskRunner> io_task_runner,
     const ProcessErrorCallback& process_error_callback) {
 #if defined(OS_NACL_SFI)
   LOG(FATAL) << "Multi-process not yet supported on NaCl-SFI";
   return nullptr;
 #else
-  return new NodeChannel(delegate, std::move(connection_params), io_task_runner,
+  return new NodeChannel(delegate, std::move(platform_handle), io_task_runner,
                          process_error_callback);
 #endif
 }
@@ -286,18 +279,6 @@ void NodeChannel::AcceptParent(const ports::NodeName& token,
       MessageType::ACCEPT_PARENT, sizeof(AcceptParentData), 0, &data);
   data->token = token;
   data->child_name = child_name;
-  WriteChannelMessage(std::move(message));
-}
-
-void NodeChannel::AcceptPeer(const ports::NodeName& sender_name,
-                             const ports::NodeName& token,
-                             const ports::PortName& port_name) {
-  AcceptPeerData* data;
-  Channel::MessagePtr message =
-      CreateMessage(MessageType::ACCEPT_PEER, sizeof(AcceptPeerData), 0, &data);
-  data->token = token;
-  data->peer_name = sender_name;
-  data->port_name = port_name;
   WriteChannelMessage(std::move(message));
 }
 
@@ -454,18 +435,17 @@ void NodeChannel::PortsMessageFromRelay(const ports::NodeName& source,
 #endif  // defined(OS_WIN) || (defined(OS_MACOSX) && !defined(OS_IOS))
 
 NodeChannel::NodeChannel(Delegate* delegate,
-                         ConnectionParams connection_params,
+                         ScopedPlatformHandle platform_handle,
                          scoped_refptr<base::TaskRunner> io_task_runner,
                          const ProcessErrorCallback& process_error_callback)
     : delegate_(delegate),
       io_task_runner_(io_task_runner),
       process_error_callback_(process_error_callback)
 #if !defined(OS_NACL_SFI)
-      ,
-      channel_(
-          Channel::Create(this, std::move(connection_params), io_task_runner_))
+      , channel_(
+          Channel::Create(this, std::move(platform_handle), io_task_runner_))
 #endif
-{
+      {
 }
 
 NodeChannel::~NodeChannel() {
@@ -748,16 +728,6 @@ void NodeChannel::OnChannelMessage(const void* payload,
 
 #endif  // defined(OS_WIN) || (defined(OS_MACOSX) && !defined(OS_IOS))
 
-    case MessageType::ACCEPT_PEER: {
-      const AcceptPeerData* data;
-      if (GetMessagePayload(payload, payload_size, &data)) {
-        delegate_->OnAcceptPeer(remote_node_name_, data->token, data->peer_name,
-                                data->port_name);
-        return;
-      }
-      break;
-    }
-
     default:
       break;
   }
@@ -801,6 +771,7 @@ void NodeChannel::ProcessPendingMessagesWithMachPorts() {
     pending_writes.swap(pending_write_messages_);
     pending_relays.swap(pending_relay_messages_);
   }
+  DCHECK(pending_writes.empty() && pending_relays.empty());
 
   while (!pending_writes.empty()) {
     Channel::MessagePtr message = std::move(pending_writes.front());

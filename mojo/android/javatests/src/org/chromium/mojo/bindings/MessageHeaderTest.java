@@ -4,7 +4,7 @@
 
 package org.chromium.mojo.bindings;
 
-import android.support.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import junit.framework.TestCase;
 

@@ -53,16 +53,12 @@ class HistogramCache {
                           jstring j_histogram_name,
                           int32_t expected_min,
                           int32_t expected_max,
-                          uint32_t expected_bucket_count,
+                          int32_t expected_bucket_count,
                           HistogramBase* histogram) {
-    std::string histogram_name = ConvertJavaStringToUTF8(env, j_histogram_name);
-    bool valid_arguments = Histogram::InspectConstructionArguments(
-        histogram_name, &expected_min, &expected_max, &expected_bucket_count);
-    DCHECK(valid_arguments);
     DCHECK(histogram->HasConstructionArguments(expected_min, expected_max,
                                                expected_bucket_count))
-        << histogram_name << "/" << expected_min << "/" << expected_max << "/"
-        << expected_bucket_count << " vs. "
+        << ConvertJavaStringToUTF8(env, j_histogram_name) << "/" << expected_min
+        << "/" << expected_max << "/" << expected_bucket_count << " vs. "
         << HistogramConstructionParamsToString(histogram);
   }
 
@@ -116,8 +112,6 @@ class HistogramCache {
                          histogram);
       return histogram;
     }
-
-    DCHECK_GE(min, 1) << "The min expected sample must be >= 1";
 
     std::string histogram_name = ConvertJavaStringToUTF8(env, j_histogram_name);
     histogram =

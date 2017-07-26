@@ -19,11 +19,10 @@ mojom_file := $(1)
 local_path := $(LOCAL_PATH)
 target_path := $(generated_sources_dir)
 gen_cc := $$(target_path)/$$(mojom_file).cc
-gen_shared_cc := $$(target_path)/$$(mojom_file)-shared.cc
 gen_h := $$(target_path)/$$(mojom_file).h
 gen_internal_h := $$(target_path)/$$(mojom_file)-internal.h
 gen_srcjar := $$(target_path)/$$(mojom_file).srcjar
-gen_src := $$(gen_cc) $$(gen_shared_cc) $$(gen_h) $$(gen_internal_h) $$(gen_srcjar)
+gen_src := $$(gen_cc) $$(gen_h) $$(gen_internal_h) $$(gen_srcjar)
 mojom_bindings_generator_flags := $$(LOCAL_MOJOM_BINDINGS_GENERATOR_FLAGS)
 # TODO(lhchavez): Generate these files instead of expecting them to be there.
 mojom_type_mappings :=
@@ -31,7 +30,6 @@ ifneq ($$(LOCAL_MOJOM_TYPE_MAPPINGS),)
 	mojom_type_mappings := $$(local_path)/$$(LOCAL_MOJOM_TYPE_MAPPINGS)
 	mojom_bindings_generator_flags += --typemap $$(abspath $$(mojom_type_mappings))
 endif
-
 
 $$(gen_cc) : PRIVATE_PATH := $$(local_path)
 $$(gen_cc) : PRIVATE_MOJO_ROOT := $$(LOCAL_MOJO_ROOT)
@@ -51,30 +49,10 @@ $$(gen_cc) : $$(local_path)/$$(mojom_file) $$(mojom_type_mappings) \
 		$$(MOJOM_TEMPLATE_TOOLS) $$(generated_templates_dir)/.stamp
 	$$(transform-generated-source)
 
-$$(gen_shared_cc) : PRIVATE_PATH := $$(local_path)
-$$(gen_shared_cc) : PRIVATE_MOJO_ROOT := $$(LOCAL_MOJO_ROOT)
-$$(gen_shared_cc) : PRIVATE_TARGET := $$(target_path)
-$$(gen_shared_cc) : PRIVATE_FLAGS := $$(mojom_bindings_generator_flags)
-$$(gen_shared_cc) : PRIVATE_CUSTOM_TOOL = \
-  (cd $$(PRIVATE_PATH) && \
-   python $$(abspath $$(MOJOM_BINDINGS_GENERATOR)) \
-   --use_bundled_pylibs generate \
-	     $$(subst $$(PRIVATE_PATH)/,,$$<) \
-	 -I $$(abspath $$(PRIVATE_MOJO_ROOT)):$$(abspath $$(PRIVATE_MOJO_ROOT)) \
-	 -o $$(abspath $$(PRIVATE_TARGET)) \
-	 --bytecode_path $$(abspath $$(generated_templates_dir)) \
-	 --generate_non_variant_code \
-	 -g c++,java \
-	 $$(PRIVATE_FLAGS))
-$$(gen_shared_cc) : $$(local_path)/$$(mojom_file) $$(mojom_type_mappings) \
-		$$(MOJOM_TEMPLATE_TOOLS) $$(generated_templates_dir)/.stamp
-	$$(transform-generated-source)
-
-
-# Make the other generated files depend on the .cc files. Unfortunately, the
+# Make the other generated files depend on the .cc file. Unfortunately, the
 # Make->ninja translation would generate one individual rule for each generated
 # file, resulting in the files being (racily) generated multiple times.
-$$(gen_internal_h): $$(gen_cc) $$(gen_shared_cc)
+$$(gen_internal_h): $$(gen_cc)
 	$$(hide) touch $$@
 
 $$(gen_h): $$(gen_cc)

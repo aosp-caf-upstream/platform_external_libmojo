@@ -91,11 +91,11 @@ try {
     }
     switch(header.getType()) {
 {%   if with_response %}
-        case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_MESSAGE_ID:
+        case org.chromium.mojo.bindings.InterfaceControlMessagesConstants.RUN_MESSAGE_ID:
             return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRun(
                     getCore(), {{interface|name}}_Internal.MANAGER, messageWithHeader, receiver);
 {%   else %}
-        case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_OR_CLOSE_PIPE_MESSAGE_ID:
+        case org.chromium.mojo.bindings.InterfaceControlMessagesConstants.RUN_OR_CLOSE_PIPE_MESSAGE_ID:
             return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRunOrClosePipe(
                     {{interface|name}}_Internal.MANAGER, messageWithHeader);
 {%   endif %}
@@ -113,7 +113,12 @@ try {
 {%       else %}
             {{request_struct|name}}.deserialize(messageWithHeader.getPayload());
 {%       endif %}
-            getImpl().{{method|name}}({{run_callback('data', method.parameters)}}{% if with_response %}{% if method.parameters %}, {% endif %}new {{response_struct|name}}ProxyToResponder(getCore(), receiver, header.getRequestId()){% endif %});
+            try {
+                getImpl().{{method|name}}({{run_callback('data', method.parameters)}}{% if with_response %}{% if method.parameters %}, {% endif %}new {{response_struct|name}}ProxyToResponder(getCore(), receiver, header.getRequestId()){% endif %});
+            } catch (RuntimeException e) {
+                // TODO(lhchavez): Remove this hack. See b/28814913 for details.
+                android.util.Log.wtf("{{namespace}}.{{interface.name}}", "Uncaught runtime exception", e);
+            }
             return true;
         }
 {%     endif %}
