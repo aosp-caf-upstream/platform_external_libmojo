@@ -12,15 +12,44 @@
 namespace base {
 namespace android {
 
-bool OnJNIOnLoadRegisterJNI(JNIEnv* env) {
+namespace {
+
+bool RegisterJNI(JNIEnv* env) {
   return RegisterLibraryLoaderEntryHook(env);
 }
 
-bool OnJNIOnLoadInit() {
+bool Init() {
   InitAtExitManager();
   JNIEnv* env = base::android::AttachCurrentThread();
   base::android::InitReplacementClassLoader(env,
                                             base::android::GetClassLoader(env));
+  return true;
+}
+
+}  // namespace
+
+
+bool OnJNIOnLoadRegisterJNI(JavaVM* vm,
+                            std::vector<RegisterCallback> callbacks) {
+  base::android::InitVM(vm);
+  JNIEnv* env = base::android::AttachCurrentThread();
+
+  callbacks.push_back(base::Bind(&RegisterJNI));
+  for (std::vector<RegisterCallback>::reverse_iterator i =
+           callbacks.rbegin(); i != callbacks.rend(); ++i) {
+    if (!i->Run(env))
+      return false;
+  }
+  return true;
+}
+
+bool OnJNIOnLoadInit(std::vector<InitCallback> callbacks) {
+  callbacks.push_back(base::Bind(&Init));
+  for (std::vector<InitCallback>::reverse_iterator i =
+           callbacks.rbegin(); i != callbacks.rend(); ++i) {
+    if (!i->Run())
+      return false;
+  }
   return true;
 }
 

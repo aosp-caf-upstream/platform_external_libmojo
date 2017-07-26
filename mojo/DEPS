@@ -3,5 +3,5 @@ include_rules = [
   "+build",
   "+testing",
 
-  "+services/service_manager",
+  "+services/shell",
 ]

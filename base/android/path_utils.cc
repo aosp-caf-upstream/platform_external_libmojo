@@ -17,7 +17,8 @@ namespace android {
 
 bool GetDataDirectory(FilePath* result) {
   JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jstring> path = Java_PathUtils_getDataDirectory(env);
+  ScopedJavaLocalRef<jstring> path =
+      Java_PathUtils_getDataDirectory(env, GetApplicationContext());
   FilePath data_path(ConvertJavaStringToUTF8(path));
   *result = data_path;
   return true;
@@ -25,7 +26,8 @@ bool GetDataDirectory(FilePath* result) {
 
 bool GetDatabaseDirectory(FilePath* result) {
   JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jstring> path = Java_PathUtils_getDatabaseDirectory(env);
+  ScopedJavaLocalRef<jstring> path =
+      Java_PathUtils_getDatabaseDirectory(env, GetApplicationContext());
   FilePath data_path(ConvertJavaStringToUTF8(path));
   *result = data_path;
   return true;
@@ -33,7 +35,8 @@ bool GetDatabaseDirectory(FilePath* result) {
 
 bool GetCacheDirectory(FilePath* result) {
   JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jstring> path = Java_PathUtils_getCacheDirectory(env);
+  ScopedJavaLocalRef<jstring> path =
+      Java_PathUtils_getCacheDirectory(env, GetApplicationContext());
   FilePath cache_path(ConvertJavaStringToUTF8(path));
   *result = cache_path;
   return true;
@@ -42,7 +45,7 @@ bool GetCacheDirectory(FilePath* result) {
 bool GetThumbnailCacheDirectory(FilePath* result) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jstring> path =
-      Java_PathUtils_getThumbnailCacheDirectory(env);
+      Java_PathUtils_getThumbnailCacheDirectory(env, GetApplicationContext());
   FilePath thumbnail_cache_path(ConvertJavaStringToUTF8(path));
   *result = thumbnail_cache_path;
   return true;
@@ -50,7 +53,8 @@ bool GetThumbnailCacheDirectory(FilePath* result) {
 
 bool GetDownloadsDirectory(FilePath* result) {
   JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jstring> path = Java_PathUtils_getDownloadsDirectory(env);
+  ScopedJavaLocalRef<jstring> path =
+      Java_PathUtils_getDownloadsDirectory(env, GetApplicationContext());
   FilePath downloads_path(ConvertJavaStringToUTF8(path));
   *result = downloads_path;
   return true;
@@ -59,7 +63,7 @@ bool GetDownloadsDirectory(FilePath* result) {
 bool GetNativeLibraryDirectory(FilePath* result) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jstring> path =
-      Java_PathUtils_getNativeLibraryDirectory(env);
+      Java_PathUtils_getNativeLibraryDirectory(env, GetApplicationContext());
   FilePath library_path(ConvertJavaStringToUTF8(path));
   *result = library_path;
   return true;
@@ -72,6 +76,10 @@ bool GetExternalStorageDirectory(FilePath* result) {
   FilePath storage_path(ConvertJavaStringToUTF8(path));
   *result = storage_path;
   return true;
+}
+
+bool RegisterPathUtils(JNIEnv* env) {
+  return RegisterNativesImpl(env);
 }
 
 }  // namespace android

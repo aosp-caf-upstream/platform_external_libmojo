@@ -4,8 +4,8 @@
 
 package org.chromium.mojo.bindings;
 
+import org.chromium.mojo.system.AsyncWaiter;
 import org.chromium.mojo.system.Handle;
-import org.chromium.mojo.system.Watcher;
 
 /**
  * Helper functions.
@@ -189,9 +189,9 @@ public class BindingsHelper {
     /**
      * Returns an {@link AsyncWaiter} to use with the given handle, or |null| if none if available.
      */
-    static Watcher getWatcherForHandle(Handle handle) {
+    static AsyncWaiter getDefaultAsyncWaiterForHandle(Handle handle) {
         if (handle.getCore() != null) {
-            return handle.getCore().getWatcher();
+            return handle.getCore().getDefaultAsyncWaiter();
         } else {
             return null;
         }

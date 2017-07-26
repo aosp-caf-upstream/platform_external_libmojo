@@ -8,13 +8,10 @@
 #include <memory>
 
 #include "base/callback.h"
-#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
-#include "mojo/public/cpp/bindings/bindings_export.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/sync_handle_watcher.h"
 #include "mojo/public/cpp/system/core.h"
@@ -36,8 +33,7 @@ namespace mojo {
 //   - Sending messages can be configured to be thread safe (please see comments
 //     of the constructor). Other than that, the object should only be accessed
 //     on the creating thread.
-class MOJO_CPP_BINDINGS_EXPORT Connector
-    : NON_EXPORTED_BASE(public MessageReceiver) {
+class Connector : public MessageReceiver {
  public:
   enum ConnectorConfig {
     // Connector::Accept() is only called from a single thread.
@@ -142,7 +138,6 @@ class MOJO_CPP_BINDINGS_EXPORT Connector
 
   // Whether currently the control flow is inside the sync handle watcher
   // callback.
-  // It always returns false after CloseMessagePipe()/PassMessagePipe().
   bool during_sync_handle_watcher_callback() const {
     return sync_handle_watcher_callback_count_ > 0;
   }
@@ -150,10 +145,6 @@ class MOJO_CPP_BINDINGS_EXPORT Connector
   base::SingleThreadTaskRunner* task_runner() const {
     return task_runner_.get();
   }
-
-  // Sets the tag used by the heap profiler.
-  // |tag| must be a const string literal.
-  void SetWatcherHeapProfilerTag(const char* tag);
 
  private:
   // Callback of mojo::Watcher.
@@ -164,8 +155,7 @@ class MOJO_CPP_BINDINGS_EXPORT Connector
 
   void WaitToReadMore();
 
-  // Returns false if it is impossible to receive more messages in the future.
-  // |this| may have been destroyed in that case.
+  // Returns false if |this| was destroyed during message dispatch.
   WARN_UNUSED_RESULT bool ReadSingleMessage(MojoResult* read_result);
 
   // |this| can be destroyed during message dispatch.
@@ -185,40 +175,31 @@ class MOJO_CPP_BINDINGS_EXPORT Connector
   base::Closure connection_error_handler_;
 
   ScopedMessagePipeHandle message_pipe_;
-  MessageReceiver* incoming_receiver_ = nullptr;
+  MessageReceiver* incoming_receiver_;
 
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
-  std::unique_ptr<Watcher> handle_watcher_;
+  Watcher handle_watcher_;
 
-  bool error_ = false;
-  bool drop_writes_ = false;
-  bool enforce_errors_from_incoming_receiver_ = true;
+  bool error_;
+  bool drop_writes_;
+  bool enforce_errors_from_incoming_receiver_;
 
-  bool paused_ = false;
+  bool paused_;
 
   // If sending messages is allowed from multiple threads, |lock_| is used to
   // protect modifications to |message_pipe_| and |drop_writes_|.
-  base::Optional<base::Lock> lock_;
+  std::unique_ptr<base::Lock> lock_;
 
   std::unique_ptr<SyncHandleWatcher> sync_watcher_;
-  bool allow_woken_up_by_others_ = false;
+  bool allow_woken_up_by_others_;
   // If non-zero, currently the control flow is inside the sync handle watcher
   // callback.
-  size_t sync_handle_watcher_callback_count_ = 0;
+  size_t sync_handle_watcher_callback_count_;
 
   base::ThreadChecker thread_checker_;
 
-  base::Lock connected_lock_;
-  bool connected_ = true;
-
-  // The tag used to track heap allocations that originated from a Watcher
-  // notification.
-  const char* heap_profiler_tag_ = nullptr;
-
   // Create a single weak ptr and use it everywhere, to avoid the malloc/free
   // cost of creating a new weak ptr whenever it is needed.
-  // NOTE: This weak pointer is invalidated when the message pipe is closed or
-  // transferred (i.e., when |connected_| is set to false).
   base::WeakPtr<Connector> weak_self_;
   base::WeakPtrFactory<Connector> weak_factory_;
 

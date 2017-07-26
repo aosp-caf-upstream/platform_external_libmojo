@@ -8,27 +8,28 @@
 
 namespace mojo {
 
-AssociatedGroup::AssociatedGroup() = default;
+AssociatedGroup::AssociatedGroup() {}
 
-AssociatedGroup::AssociatedGroup(
-    scoped_refptr<AssociatedGroupController> controller)
-    : controller_(std::move(controller)) {}
+AssociatedGroup::AssociatedGroup(const AssociatedGroup& other)
+    : controller_(other.controller_) {}
 
-AssociatedGroup::AssociatedGroup(const ScopedInterfaceEndpointHandle& handle)
-    : controller_getter_(handle.CreateGroupControllerGetter()) {}
+AssociatedGroup::~AssociatedGroup() {}
 
-AssociatedGroup::AssociatedGroup(const AssociatedGroup& other) = default;
+AssociatedGroup& AssociatedGroup::operator=(const AssociatedGroup& other) {
+  if (this == &other)
+    return *this;
 
-AssociatedGroup::~AssociatedGroup() = default;
+  controller_ = other.controller_;
+  return *this;
+}
 
-AssociatedGroup& AssociatedGroup::operator=(const AssociatedGroup& other) =
-    default;
+void AssociatedGroup::CreateEndpointHandlePair(
+    ScopedInterfaceEndpointHandle* local_endpoint,
+    ScopedInterfaceEndpointHandle* remote_endpoint) {
+  if (!controller_)
+    return;
 
-AssociatedGroupController* AssociatedGroup::GetController() {
-  if (controller_)
-    return controller_.get();
-
-  return controller_getter_.Run();
+  controller_->CreateEndpointHandlePair(local_endpoint, remote_endpoint);
 }
 
 }  // namespace mojo

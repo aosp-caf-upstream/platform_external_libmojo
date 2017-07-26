@@ -6,9 +6,9 @@ package org.chromium.mojo.bindings;
 
 import android.annotation.SuppressLint;
 
+import org.chromium.mojo.system.AsyncWaiter;
 import org.chromium.mojo.system.Core;
 import org.chromium.mojo.system.MessagePipeHandle;
-import org.chromium.mojo.system.Watcher;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -48,7 +48,7 @@ public class RouterImpl implements Router {
      * {@link MessageReceiver} used to return responses to the caller.
      */
     class ResponderThunk implements MessageReceiver {
-        private boolean mAcceptWasInvoked;
+        private boolean mAcceptWasInvoked = false;
 
         /**
          * @see
@@ -109,23 +109,23 @@ public class RouterImpl implements Router {
     private final Executor mExecutor;
 
     /**
-     * Constructor that will use the default {@link Watcher}.
+     * Constructor that will use the default {@link AsyncWaiter}.
      *
      * @param messagePipeHandle The {@link MessagePipeHandle} to route message for.
      */
     public RouterImpl(MessagePipeHandle messagePipeHandle) {
-        this(messagePipeHandle, BindingsHelper.getWatcherForHandle(messagePipeHandle));
+        this(messagePipeHandle, BindingsHelper.getDefaultAsyncWaiterForHandle(messagePipeHandle));
     }
 
     /**
      * Constructor.
      *
      * @param messagePipeHandle The {@link MessagePipeHandle} to route message for.
-     * @param watcher the {@link Watcher} to use to get notification of new messages on the
+     * @param asyncWaiter the {@link AsyncWaiter} to use to get notification of new messages on the
      *            handle.
      */
-    public RouterImpl(MessagePipeHandle messagePipeHandle, Watcher watcher) {
-        mConnector = new Connector(messagePipeHandle, watcher);
+    public RouterImpl(MessagePipeHandle messagePipeHandle, AsyncWaiter asyncWaiter) {
+        mConnector = new Connector(messagePipeHandle, asyncWaiter);
         mConnector.setIncomingMessageReceiver(new HandleIncomingMessageThunk());
         Core core = messagePipeHandle.getCore();
         if (core != null) {
@@ -171,20 +171,23 @@ public class RouterImpl implements Router {
         assert messageWithHeader.getHeader().hasFlag(MessageHeader.MESSAGE_EXPECTS_RESPONSE_FLAG);
 
         // Compute a request id for being able to route the response.
-        long requestId = mNextRequestId++;
-        // Reserve 0 in case we want it to convey special meaning in the future.
-        if (requestId == 0) {
-            requestId = mNextRequestId++;
+        // TODO(lhchavez): Remove this hack. See b/28986534 for details.
+        synchronized (mResponders) {
+            long requestId = mNextRequestId++;
+            // Reserve 0 in case we want it to convey special meaning in the future.
+            if (requestId == 0) {
+                requestId = mNextRequestId++;
+            }
+            if (mResponders.containsKey(requestId)) {
+                throw new IllegalStateException("Unable to find a new request identifier.");
+            }
+            messageWithHeader.setRequestId(requestId);
+            if (!mConnector.accept(messageWithHeader)) {
+                return false;
+            }
+            // Only keep the responder is the message has been accepted.
+            mResponders.put(requestId, responder);
         }
-        if (mResponders.containsKey(requestId)) {
-            throw new IllegalStateException("Unable to find a new request identifier.");
-        }
-        messageWithHeader.setRequestId(requestId);
-        if (!mConnector.accept(messageWithHeader)) {
-            return false;
-        }
-        // Only keep the responder is the message has been accepted.
-        mResponders.put(requestId, responder);
         return true;
     }
 
@@ -227,11 +230,15 @@ public class RouterImpl implements Router {
             return false;
         } else if (header.hasFlag(MessageHeader.MESSAGE_IS_RESPONSE_FLAG)) {
             long requestId = header.getRequestId();
-            MessageReceiver responder = mResponders.get(requestId);
-            if (responder == null) {
-                return false;
+            MessageReceiver responder;
+            // TODO(lhchavez): Remove this hack. See b/28986534 for details.
+            synchronized (mResponders) {
+                responder = mResponders.get(requestId);
+                if (responder == null) {
+                    return false;
+                }
+                mResponders.remove(requestId);
             }
-            mResponders.remove(requestId);
             return responder.accept(message);
         } else {
             if (mIncomingMessageReceiver != null) {

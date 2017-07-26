@@ -47,9 +47,7 @@ namespace mojo {
 //     static void AdvanceIterator(Iterator& iterator);
 //
 //     // Returns a reference to the value at the current position of
-//     // |iterator|. Optionally, the ConstIterator version of GetValue can
-//     // return by value instead of by reference if it makes sense for the
-//     // type.
+//     // |iterator|.
 //     static const T& GetValue(ConstIterator& iterator);
 //     static T& GetValue(Iterator& iterator);
 //
