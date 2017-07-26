@@ -1,24 +1,29 @@
-class {{export_attribute}} {{struct.name}} {
+{% from "enum_macros.tmpl" import enum_decl -%}
+
+class {{struct.name}} {
  public:
   using DataView = {{struct.name}}DataView;
   using Data_ = internal::{{struct.name}}_Data;
 
 {#--- Enums #}
 {%- for enum in struct.enums -%}
-  using {{enum.name}} = {{enum|get_name_for_kind(flatten_nested_kind=True)}};
+{%-   if enum|is_native_only_kind %}
+  using {{enum.name}} = mojo::NativeEnum;
+{%-   else %}
+  {{enum_decl(enum)|indent(2)}}
+{%-   endif %}
 {%- endfor %}
 
 {#--- Constants #}
 {%- for constant in struct.constants %}
-  static {{constant|format_constant_declaration(nested=True)}};
+{%-   if constant.kind|is_integral_kind %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}} = {{constant|constant_value}};
+{%-   else %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}};
+{%-   endif %}
 {%- endfor %}
 
-  template <typename... Args>
-  static {{struct.name}}Ptr New(Args&&... args) {
-    return {{struct.name}}Ptr(
-        base::in_place,
-        std::forward<Args>(args)...);
-  }
+  static {{struct.name}}Ptr New();
 
   template <typename U>
   static {{struct.name}}Ptr From(const U& u) {
@@ -30,15 +35,7 @@ class {{export_attribute}} {{struct.name}} {
     return mojo::TypeConverter<U, {{struct.name}}>::Convert(*this);
   }
 
-{% for constructor in struct|struct_constructors %}
-  {% if constructor.params|length == 1 %}explicit {% endif %}{{struct.name}}(
-{%-   for field in constructor.params %}
-{%-     set type = field.kind|cpp_wrapper_param_type %}
-{%-     set name = field.name %}
-      {{type}} {{name}}
-{%-     if not loop.last -%},{%- endif %}
-{%-   endfor %});
-{% endfor %}
+  {{struct.name}}();
   ~{{struct.name}}();
 
   // Clone() is a template so it is only instantiated if it is used. Thus, the
@@ -55,24 +52,20 @@ class {{export_attribute}} {{struct.name}} {
                 T, {{struct.name}}>::value>::type* = nullptr>
   bool Equals(const T& other) const;
 
-{%- if struct|is_hashable %}
-  size_t Hash(size_t seed) const;
-{%- endif %}
-
-{%- set serialization_result_type = "WTF::Vector<uint8_t>"
-        if for_blink else "std::vector<uint8_t>" %}
+{%- set serialization_result_type = "mojo::WTFArray<uint8_t>"
+        if for_blink else "mojo::Array<uint8_t>" %}
 
   template <typename UserType>
   static {{serialization_result_type}} Serialize(UserType* input) {
     return mojo::internal::StructSerializeImpl<
-        {{struct.name}}::DataView, {{serialization_result_type}}>(input);
+        {{struct.name}}Ptr, {{serialization_result_type}}>(input);
   }
 
   template <typename UserType>
   static bool Deserialize(const {{serialization_result_type}}& input,
                           UserType* output) {
     return mojo::internal::StructDeserializeImpl<
-        {{struct.name}}::DataView, {{serialization_result_type}}>(
+        {{struct.name}}Ptr, {{serialization_result_type}}>(
             input, output);
   }
 
@@ -82,10 +75,5 @@ class {{export_attribute}} {{struct.name}} {
 {%-   set name = field.name %}
   {{type}} {{name}};
 {%- endfor %}
-
-{%- if struct|contains_move_only_members %}
- private:
-  DISALLOW_COPY_AND_ASSIGN({{struct.name}});
-{%- endif %}
 };
 

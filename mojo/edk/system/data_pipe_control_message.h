@@ -17,6 +17,7 @@ namespace mojo {
 namespace edk {
 
 class NodeController;
+class PortsMessage;
 
 enum DataPipeCommand : uint32_t {
   // Signal to the consumer that new data is available.

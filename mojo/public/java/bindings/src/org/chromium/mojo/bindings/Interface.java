@@ -6,14 +6,6 @@ package org.chromium.mojo.bindings;
 
 import org.chromium.mojo.bindings.Callbacks.Callback1;
 import org.chromium.mojo.bindings.Interface.AbstractProxy.HandlerImpl;
-import org.chromium.mojo.bindings.interfacecontrol.QueryVersion;
-import org.chromium.mojo.bindings.interfacecontrol.RequireVersion;
-import org.chromium.mojo.bindings.interfacecontrol.RunInput;
-import org.chromium.mojo.bindings.interfacecontrol.RunMessageParams;
-import org.chromium.mojo.bindings.interfacecontrol.RunOrClosePipeInput;
-import org.chromium.mojo.bindings.interfacecontrol.RunOrClosePipeMessageParams;
-import org.chromium.mojo.bindings.interfacecontrol.RunOutput;
-import org.chromium.mojo.bindings.interfacecontrol.RunResponseMessageParams;
 import org.chromium.mojo.system.Core;
 import org.chromium.mojo.system.MessagePipeHandle;
 import org.chromium.mojo.system.MojoException;
@@ -107,12 +99,12 @@ public interface Interface extends ConnectionErrorHandler, Closeable {
             /**
              * The {@link ConnectionErrorHandler} that will be notified of errors.
              */
-            private ConnectionErrorHandler mErrorHandler;
+            private ConnectionErrorHandler mErrorHandler = null;
 
             /**
              * The currently known version of the interface.
              */
-            private int mVersion;
+            private int mVersion = 0;
 
             /**
              * Constructor.
@@ -194,18 +186,15 @@ public interface Interface extends ConnectionErrorHandler, Closeable {
             @Override
             public void queryVersion(final Callback1<Integer> callback) {
                 RunMessageParams message = new RunMessageParams();
-                message.input = new RunInput();
-                message.input.setQueryVersion(new QueryVersion());
+                message.reserved0 = 16;
+                message.reserved1 = 0;
+                message.queryVersion = new QueryVersion();
 
                 InterfaceControlMessagesHelper.sendRunMessage(getCore(), mMessageReceiver, message,
                         new Callback1<RunResponseMessageParams>() {
                             @Override
                             public void call(RunResponseMessageParams response) {
-                                if (response.output != null
-                                        && response.output.which()
-                                                == RunOutput.Tag.QueryVersionResult) {
-                                    mVersion = response.output.getQueryVersionResult().version;
-                                }
+                                mVersion = response.queryVersionResult.version;
                                 callback.call(mVersion);
                             }
                         });
@@ -221,9 +210,10 @@ public interface Interface extends ConnectionErrorHandler, Closeable {
                 }
                 mVersion = version;
                 RunOrClosePipeMessageParams message = new RunOrClosePipeMessageParams();
-                message.input = new RunOrClosePipeInput();
-                message.input.setRequireVersion(new RequireVersion());
-                message.input.getRequireVersion().version = version;
+                message.reserved0 = 16;
+                message.reserved1 = 0;
+                message.requireVersion = new RequireVersion();
+                message.requireVersion.version = version;
                 InterfaceControlMessagesHelper.sendRunOrClosePipeMessage(
                         getCore(), mMessageReceiver, message);
             }

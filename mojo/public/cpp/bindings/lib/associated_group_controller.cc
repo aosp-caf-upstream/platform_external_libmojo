@@ -8,17 +8,25 @@
 
 namespace mojo {
 
+AssociatedGroupController::AssociatedGroupController(
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+    : base::RefCountedDeleteOnMessageLoop<AssociatedGroupController>(
+          task_runner) {}
+
 AssociatedGroupController::~AssociatedGroupController() {}
 
-ScopedInterfaceEndpointHandle
-AssociatedGroupController::CreateScopedInterfaceEndpointHandle(InterfaceId id) {
-  return ScopedInterfaceEndpointHandle(id, this);
+std::unique_ptr<AssociatedGroup>
+AssociatedGroupController::CreateAssociatedGroup() {
+  std::unique_ptr<AssociatedGroup> group(new AssociatedGroup);
+  group->controller_ = this;
+  return group;
 }
 
-bool AssociatedGroupController::NotifyAssociation(
-    ScopedInterfaceEndpointHandle* handle_to_send,
-    InterfaceId id) {
-  return handle_to_send->NotifyAssociation(id, this);
+ScopedInterfaceEndpointHandle
+AssociatedGroupController::CreateScopedInterfaceEndpointHandle(
+    InterfaceId id,
+    bool is_local) {
+  return ScopedInterfaceEndpointHandle(id, is_local, this);
 }
 
 }  // namespace mojo
