@@ -13,3 +13,4 @@ class CacheControl(object):
     """Drops the filesystem ram caches for performance testing."""
     self._device.RunShellCommand('sync', as_root=True)
     self._device.WriteFile(CacheControl._DROP_CACHES, '3', as_root=True)
+

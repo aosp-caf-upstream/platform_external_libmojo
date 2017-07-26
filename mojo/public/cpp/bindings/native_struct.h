@@ -5,10 +5,7 @@
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_NATIVE_STRUCT_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_NATIVE_STRUCT_H_
 
-#include <vector>
-
-#include "base/optional.h"
-#include "mojo/public/cpp/bindings/bindings_export.h"
+#include "mojo/public/cpp/bindings/array.h"
 #include "mojo/public/cpp/bindings/lib/native_struct_data.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "mojo/public/cpp/bindings/type_converter.h"
@@ -20,7 +17,7 @@ using NativeStructPtr = StructPtr<NativeStruct>;
 
 // Native-only structs correspond to "[Native] struct Foo;" definitions in
 // mojom.
-class MOJO_CPP_BINDINGS_EXPORT NativeStruct {
+class NativeStruct {
  public:
   using Data_ = internal::NativeStruct_Data;
 
@@ -41,9 +38,8 @@ class MOJO_CPP_BINDINGS_EXPORT NativeStruct {
 
   NativeStructPtr Clone() const;
   bool Equals(const NativeStruct& other) const;
-  size_t Hash(size_t seed) const;
 
-  base::Optional<std::vector<uint8_t>> data;
+  Array<uint8_t> data;
 };
 
 }  // namespace mojo

@@ -3,10 +3,9 @@
 // found in the LICENSE file.
 
 define("mojo/public/js/codec", [
-  "mojo/public/js/buffer",
-  "mojo/public/js/interface_types",
   "mojo/public/js/unicode",
-], function(buffer, types, unicode) {
+  "mojo/public/js/buffer",
+], function(unicode, buffer) {
 
   var kErrorUnsigned = "Passing negative value to unsigned";
   var kErrorArray = "Passing non Array for array type";
@@ -304,12 +303,8 @@ define("mojo/public/js/codec", [
   };
 
   Encoder.prototype.encodeHandle = function(handle) {
-    if (handle) {
-      this.handles.push(handle);
-      this.writeUint32(this.handles.length - 1);
-    } else {
-      this.writeUint32(kEncodedInvalidHandleValue);
-    }
+    this.handles.push(handle);
+    this.writeUint32(this.handles.length - 1);
   };
 
   Encoder.prototype.encodeString = function(val) {
@@ -716,20 +711,6 @@ define("mojo/public/js/codec", [
     encoder.writeDouble(val);
   };
 
-  function Enum(cls) {
-    this.cls = cls;
-  }
-
-  Enum.prototype.encodedSize = 4;
-
-  Enum.prototype.decode = function(decoder) {
-    return decoder.readInt32();
-  };
-
-  Enum.prototype.encode = function(encoder, val) {
-    encoder.writeInt32(val);
-  };
-
   function PointerTo(cls) {
     this.cls = cls;
   }
@@ -807,54 +788,33 @@ define("mojo/public/js/codec", [
 
   NullableHandle.encode = Handle.encode;
 
-  function Interface(cls) {
-    this.cls = cls;
+  function Interface() {
   }
 
-  Interface.prototype.encodedSize = 8;
+  Interface.encodedSize = 8;
 
-  Interface.prototype.decode = function(decoder) {
-    var interfacePtrInfo = new types.InterfacePtrInfo(
-        decoder.decodeHandle(), decoder.readUint32());
-    var interfacePtr = new this.cls();
-    interfacePtr.ptr.bind(interfacePtrInfo);
-    return interfacePtr;
+  Interface.decode = function(decoder) {
+    var handle = decoder.decodeHandle();
+    // Ignore the version field for now.
+    decoder.readUint32();
+
+    return handle;
   };
 
-  Interface.prototype.encode = function(encoder, val) {
-    var interfacePtrInfo =
-        val ? val.ptr.passInterface() : new types.InterfacePtrInfo(null, 0);
-    encoder.encodeHandle(interfacePtrInfo.handle);
-    encoder.writeUint32(interfacePtrInfo.version);
+  Interface.encode = function(encoder, val) {
+    encoder.encodeHandle(val);
+    // Set the version field to 0 for now.
+    encoder.writeUint32(0);
   };
 
-  function NullableInterface(cls) {
-    Interface.call(this, cls);
+  function NullableInterface() {
   }
 
-  NullableInterface.prototype = Object.create(Interface.prototype);
+  NullableInterface.encodedSize = Interface.encodedSize;
 
-  function InterfaceRequest() {
-  }
+  NullableInterface.decode = Interface.decode;
 
-  InterfaceRequest.encodedSize = 4;
-
-  InterfaceRequest.decode = function(decoder) {
-    return new types.InterfaceRequest(decoder.decodeHandle());
-  };
-
-  InterfaceRequest.encode = function(encoder, val) {
-    encoder.encodeHandle(val ? val.handle : null);
-  };
-
-  function NullableInterfaceRequest() {
-  }
-
-  NullableInterfaceRequest.encodedSize = InterfaceRequest.encodedSize;
-
-  NullableInterfaceRequest.decode = InterfaceRequest.decode;
-
-  NullableInterfaceRequest.encode = InterfaceRequest.encode;
+  NullableInterface.encode = Interface.encode;
 
   function MapOf(keyClass, valueClass) {
     this.keyClass = keyClass;
@@ -903,7 +863,6 @@ define("mojo/public/js/codec", [
   exports.Float = Float;
   exports.Double = Double;
   exports.String = String;
-  exports.Enum = Enum;
   exports.NullableString = NullableString;
   exports.PointerTo = PointerTo;
   exports.NullablePointerTo = NullablePointerTo;
@@ -914,8 +873,6 @@ define("mojo/public/js/codec", [
   exports.NullableHandle = NullableHandle;
   exports.Interface = Interface;
   exports.NullableInterface = NullableInterface;
-  exports.InterfaceRequest = InterfaceRequest;
-  exports.NullableInterfaceRequest = NullableInterfaceRequest;
   exports.MapOf = MapOf;
   exports.NullableMapOf = NullableMapOf;
   return exports;

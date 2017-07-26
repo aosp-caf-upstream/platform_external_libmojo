@@ -13,6 +13,7 @@
 #include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/synchronization/lock.h"
 #include "build/build_config.h"
@@ -128,9 +129,10 @@ struct PathData {
   }
 };
 
+static LazyInstance<PathData>::Leaky g_path_data = LAZY_INSTANCE_INITIALIZER;
+
 static PathData* GetPathData() {
-  static auto* path_data = new PathData();
-  return path_data;
+  return g_path_data.Pointer();
 }
 
 // Tries to find |key| in the cache. |path_data| should be locked by the caller!

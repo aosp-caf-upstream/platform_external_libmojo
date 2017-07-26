@@ -19,7 +19,6 @@
 #include "base/message_loop/message_loop.h"
 #include "base/synchronization/lock.h"
 #include "base/task_runner.h"
-#include "base/win/win_util.h"
 #include "mojo/edk/embedder/platform_handle_vector.h"
 
 namespace mojo {
@@ -138,8 +137,8 @@ class ChannelWin : public Channel,
     const HandleEntry* extra_header_handles =
         reinterpret_cast<const HandleEntry*>(extra_header);
     for (size_t i = 0; i < num_handles; i++) {
-      (*handles)->at(i).handle =
-          base::win::Uint32ToHandle(extra_header_handles[i].handle);
+      (*handles)->at(i).handle = reinterpret_cast<HANDLE>(
+          static_cast<uintptr_t>(extra_header_handles[i].handle));
     }
     return true;
   }
@@ -350,10 +349,9 @@ class ChannelWin : public Channel,
 // static
 scoped_refptr<Channel> Channel::Create(
     Delegate* delegate,
-    ConnectionParams connection_params,
+    ScopedPlatformHandle platform_handle,
     scoped_refptr<base::TaskRunner> io_task_runner) {
-  return new ChannelWin(delegate, connection_params.TakeChannelHandle(),
-                        io_task_runner);
+  return new ChannelWin(delegate, std::move(platform_handle), io_task_runner);
 }
 
 }  // namespace edk

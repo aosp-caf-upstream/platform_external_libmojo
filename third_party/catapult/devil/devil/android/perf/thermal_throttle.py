@@ -129,3 +129,4 @@ class ThermalThrottle(object):
                         serial_number, btemp, degree_symbol)
 
     return has_been_throttled
+

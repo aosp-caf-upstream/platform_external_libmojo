@@ -44,15 +44,14 @@ MojoTestBase::~MojoTestBase() {}
 MojoTestBase::ClientController& MojoTestBase::StartClient(
     const std::string& client_name) {
   clients_.push_back(base::MakeUnique<ClientController>(
-      client_name, this, process_error_callback_, launch_type_));
+      client_name, this, process_error_callback_));
   return *clients_.back();
 }
 
 MojoTestBase::ClientController::ClientController(
     const std::string& client_name,
     MojoTestBase* test,
-    const ProcessErrorCallback& process_error_callback,
-    LaunchType launch_type) {
+    const ProcessErrorCallback& process_error_callback) {
 #if !defined(OS_IOS)
 #if defined(OS_MACOSX)
   // This lock needs to be held while launching the child because the Mach port
@@ -64,7 +63,7 @@ MojoTestBase::ClientController::ClientController(
   base::AutoLock lock(g_mach_broker->GetLock());
 #endif
   helper_.set_process_error_callback(process_error_callback);
-  pipe_ = helper_.StartChild(client_name, launch_type);
+  pipe_ = helper_.StartChild(client_name);
 #if defined(OS_MACOSX)
   g_mach_broker->AddPlaceholderForPid(helper_.test_child().Handle());
 #endif
@@ -74,12 +73,6 @@ MojoTestBase::ClientController::ClientController(
 MojoTestBase::ClientController::~ClientController() {
   CHECK(was_shutdown_)
       << "Test clients should be waited on explicitly with WaitForShutdown().";
-}
-
-void MojoTestBase::ClientController::ClosePeerConnection() {
-#if !defined(OS_IOS)
-  helper_.ClosePeerConnection();
-#endif
 }
 
 int MojoTestBase::ClientController::WaitForShutdown() {

@@ -16,11 +16,15 @@ std::string GetDefaultCountryCode() {
   return ConvertJavaStringToUTF8(Java_LocaleUtils_getDefaultCountryCode(env));
 }
 
-std::string GetDefaultLocaleString() {
+std::string GetDefaultLocale() {
   JNIEnv* env = base::android::AttachCurrentThread();
-  ScopedJavaLocalRef<jstring> locale =
-      Java_LocaleUtils_getDefaultLocaleString(env);
+  ScopedJavaLocalRef<jstring> locale = Java_LocaleUtils_getDefaultLocale(
+      env);
   return ConvertJavaStringToUTF8(locale);
+}
+
+bool RegisterLocaleUtils(JNIEnv* env) {
+  return RegisterNativesImpl(env);
 }
 
 }  // namespace android

@@ -7,14 +7,6 @@ package org.chromium.mojo.bindings;
 import org.chromium.mojo.bindings.Callbacks.Callback1;
 import org.chromium.mojo.bindings.Interface.Manager;
 import org.chromium.mojo.bindings.Interface.Proxy;
-import org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants;
-import org.chromium.mojo.bindings.interfacecontrol.QueryVersionResult;
-import org.chromium.mojo.bindings.interfacecontrol.RunInput;
-import org.chromium.mojo.bindings.interfacecontrol.RunMessageParams;
-import org.chromium.mojo.bindings.interfacecontrol.RunOrClosePipeInput;
-import org.chromium.mojo.bindings.interfacecontrol.RunOrClosePipeMessageParams;
-import org.chromium.mojo.bindings.interfacecontrol.RunOutput;
-import org.chromium.mojo.bindings.interfacecontrol.RunResponseMessageParams;
 import org.chromium.mojo.system.Core;
 
 /**
@@ -72,16 +64,11 @@ public class InterfaceControlMessagesHelper {
      */
     public static <I extends Interface, P extends Proxy> boolean handleRun(
             Core core, Manager<I, P> manager, ServiceMessage message, MessageReceiver responder) {
-        Message payload = message.getPayload();
-        RunMessageParams query = RunMessageParams.deserialize(payload);
         RunResponseMessageParams response = new RunResponseMessageParams();
-        response.output = new RunOutput();
-        if (query.input.which() == RunInput.Tag.QueryVersion) {
-            response.output.setQueryVersionResult(new QueryVersionResult());
-            response.output.getQueryVersionResult().version = manager.getVersion();
-        } else {
-            response.output = null;
-        }
+        response.reserved0 = 16;
+        response.reserved1 = 0;
+        response.queryVersionResult = new QueryVersionResult();
+        response.queryVersionResult.version = manager.getVersion();
 
         return responder.accept(response.serializeWithHeader(
                 core, new MessageHeader(InterfaceControlMessagesConstants.RUN_MESSAGE_ID,
@@ -97,9 +84,6 @@ public class InterfaceControlMessagesHelper {
             Manager<I, P> manager, ServiceMessage message) {
         Message payload = message.getPayload();
         RunOrClosePipeMessageParams query = RunOrClosePipeMessageParams.deserialize(payload);
-        if (query.input.which() == RunOrClosePipeInput.Tag.RequireVersion) {
-            return query.input.getRequireVersion().version <= manager.getVersion();
-        }
-        return false;
+        return query.requireVersion.version <= manager.getVersion();
     }
 }

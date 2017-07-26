@@ -4,7 +4,7 @@
 
 package org.chromium.mojo.bindings;
 
-import android.support.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.mojo.HandleMock;
@@ -13,7 +13,6 @@ import org.chromium.mojo.bindings.test.mojom.mojo.ConformanceTestInterface;
 import org.chromium.mojo.bindings.test.mojom.mojo.IntegrationTestInterface;
 import org.chromium.mojo.bindings.test.mojom.mojo.IntegrationTestInterfaceTestHelper;
 import org.chromium.mojo.system.Handle;
-import org.chromium.mojo.system.impl.CoreImpl;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -190,10 +189,8 @@ public class ValidationTest extends MojoTestCase {
      */
     @SmallTest
     public void testConformance() throws FileNotFoundException {
-        runTest("conformance_",
-                ConformanceTestInterface.MANAGER.buildStub(CoreImpl.getInstance(),
-                        ConformanceTestInterface.MANAGER.buildProxy(
-                                CoreImpl.getInstance(), new SinkMessageReceiver())));
+        runTest("conformance_", ConformanceTestInterface.MANAGER.buildStub(null,
+                ConformanceTestInterface.MANAGER.buildProxy(null, new SinkMessageReceiver())));
     }
 
     /**

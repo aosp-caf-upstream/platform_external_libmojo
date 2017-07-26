@@ -12,7 +12,6 @@
 #include "mojo/public/cpp/bindings/map_traits.h"
 #include "mojo/public/cpp/bindings/string_traits.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
-#include "mojo/public/cpp/bindings/union_traits.h"
 
 // This file is included by serialization implementation files to avoid circular
 // includes.
