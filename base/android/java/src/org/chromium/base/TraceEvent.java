@@ -12,19 +12,18 @@ import android.util.Printer;
 
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
-import org.chromium.base.annotations.MainDex;
 /**
  * Java mirror of Chrome trace event API. See base/trace_event/trace_event.h. Unlike the native
  * version, Java does not have stack objects, so a TRACE_EVENT() which does both TRACE_EVENT_BEGIN()
  * and TRACE_EVENT_END() in ctor/dtor is not possible.
- * It is OK to use tracing before the native library has loaded, in a slightly restricted fashion.
- * @see EarlyTraceEvent for details.
+ * It is OK to use tracing before the native library has loaded, but such traces will
+ * be ignored. (Perhaps we could devise to buffer them up in future?).
  */
 @JNINamespace("base::android")
-@MainDex
 public class TraceEvent {
-    private static volatile boolean sEnabled;
-    private static volatile boolean sATraceEnabled; // True when taking an Android systrace.
+
+    private static volatile boolean sEnabled = false;
+    private static volatile boolean sATraceEnabled = false; // True when taking an Android systrace.
 
     private static class BasicLooperMonitor implements Printer {
         @Override
@@ -83,14 +82,14 @@ public class TraceEvent {
                 MIN_INTERESTING_DURATION_MILLIS * 3;
 
         // Stats tracking
-        private long mLastIdleStartedAt;
-        private long mLastWorkStartedAt;
-        private int mNumTasksSeen;
-        private int mNumIdlesSeen;
-        private int mNumTasksSinceLastIdle;
+        private long mLastIdleStartedAt = 0L;
+        private long mLastWorkStartedAt = 0L;
+        private int mNumTasksSeen = 0;
+        private int mNumIdlesSeen = 0;
+        private int mNumTasksSinceLastIdle = 0;
 
         // State
-        private boolean mIdleMonitorAttached;
+        private boolean mIdleMonitorAttached = false;
 
         // Called from within the begin/end methods only.
         // This method can only execute on the looper thread, because that is
@@ -180,26 +179,11 @@ public class TraceEvent {
      */
     @CalledByNative
     public static void setEnabled(boolean enabled) {
-        if (enabled) EarlyTraceEvent.disable();
-        // Only disable logging if Chromium enabled it originally, so as to not disrupt logging done
-        // by other applications
-        if (sEnabled != enabled) {
-            sEnabled = enabled;
-            // Android M+ systrace logs this on its own. Only log it if not writing to Android
-            // systrace.
-            if (sATraceEnabled) return;
-            ThreadUtils.getUiThreadLooper().setMessageLogging(
-                    enabled ? LooperMonitorHolder.sInstance : null);
-        }
-    }
-
-    /**
-     * May enable early tracing depending on the environment.
-     *
-     * Must be called after the command-line has been read.
-     */
-    public static void maybeEnableEarlyTracing() {
-        EarlyTraceEvent.maybeEnable();
+        sEnabled = enabled;
+        // Android M+ systrace logs this on its own. Only log it if not writing to Android systrace.
+        if (sATraceEnabled) return;
+        ThreadUtils.getUiThreadLooper().setMessageLogging(
+                enabled ? LooperMonitorHolder.sInstance : null);
     }
 
     /**
@@ -270,7 +254,7 @@ public class TraceEvent {
      * @param name The name of the event.
      */
     public static void begin(String name) {
-        begin(name, null);
+        if (sEnabled) nativeBegin(name, null);
     }
 
     /**
@@ -279,7 +263,6 @@ public class TraceEvent {
      * @param arg  The arguments of the event.
      */
     public static void begin(String name, String arg) {
-        EarlyTraceEvent.begin(name);
         if (sEnabled) nativeBegin(name, arg);
     }
 
@@ -288,7 +271,7 @@ public class TraceEvent {
      * @param name The name of the event.
      */
     public static void end(String name) {
-        end(name, null);
+        if (sEnabled) nativeEnd(name, null);
     }
 
     /**
@@ -297,7 +280,6 @@ public class TraceEvent {
      * @param arg  The arguments of the event.
      */
     public static void end(String name, String arg) {
-        EarlyTraceEvent.end(name);
         if (sEnabled) nativeEnd(name, arg);
     }
 

@@ -20,20 +20,19 @@
 namespace {
 const char kTestJniClassPath[] = "org/chromium/TestJni";
 // Leaking this jclass as we cannot use LazyInstance from some threads.
-base::subtle::AtomicWord g_TestJni_clazz __attribute__((unused)) = 0;
-#define TestJni_clazz(env) base::android::LazyGetClass(env, kTestJniClassPath, &g_TestJni_clazz)
+jclass g_TestJni_clazz = NULL;
+#define TestJni_clazz(env) g_TestJni_clazz
 
 }  // namespace
 
 // Step 2: method stubs.
-JNI_GENERATOR_EXPORT void Java_org_chromium_TestJni_nativeDestroy(JNIEnv* env,
+static void Java_org_chromium_TestJni_nativeDestroy(JNIEnv* env,
     jobject jcaller,
     jlong nativeChromeBrowserProvider) {
   ChromeBrowserProvider* native =
       reinterpret_cast<ChromeBrowserProvider*>(nativeChromeBrowserProvider);
   CHECK_NATIVE_PTR(env, jcaller, native, "Destroy");
-  return native->Destroy(env, base::android::JavaParamRef<jobject>(env,
-      jcaller));
+  return native->Destroy(env, JavaParamRef<jobject>(env, jcaller));
 }
 
 // Step 3: RegisterNatives.
@@ -47,8 +46,9 @@ static const JNINativeMethod kMethodsTestJni[] = {
 };
 
 static bool RegisterNativesImpl(JNIEnv* env) {
-  if (jni_generator::ShouldSkipJniRegistration(false))
-    return true;
+
+  g_TestJni_clazz = reinterpret_cast<jclass>(env->NewGlobalRef(
+      base::android::GetClass(env, kTestJniClassPath).obj()));
 
   const int kMethodsTestJniSize = arraysize(kMethodsTestJni);
 

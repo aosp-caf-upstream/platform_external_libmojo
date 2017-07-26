@@ -11,6 +11,10 @@
 namespace base {
 namespace android {
 
+bool SysUtils::Register(JNIEnv* env) {
+  return RegisterNativesImpl(env);
+}
+
 bool SysUtils::IsLowEndDeviceFromJni() {
   JNIEnv* env = AttachCurrentThread();
   return Java_SysUtils_isLowEndDevice(env);

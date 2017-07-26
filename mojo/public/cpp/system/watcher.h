@@ -5,6 +5,8 @@
 #ifndef MOJO_PUBLIC_CPP_SYSTEM_WATCHER_H_
 #define MOJO_PUBLIC_CPP_SYSTEM_WATCHER_H_
 
+#include <memory>
+
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
@@ -14,14 +16,13 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "mojo/public/c/system/types.h"
 #include "mojo/public/cpp/system/handle.h"
-#include "mojo/public/cpp/system/system_export.h"
 
 namespace mojo {
 
 // A Watcher watches a single Mojo handle for signal state changes.
 //
 // NOTE: Watchers may only be used on threads which have a running MessageLoop.
-class MOJO_CPP_SYSTEM_EXPORT Watcher {
+class Watcher {
  public:
   // A callback to be called any time a watched handle changes state in some
   // interesting way. The |result| argument indicates one of the following
@@ -34,11 +35,15 @@ class MOJO_CPP_SYSTEM_EXPORT Watcher {
   //
   //   |MOJO_RESULT_CANCELLED|: The handle has been closed and the watch has
   //       been cancelled implicitly.
+  //
+  //   |MOJO_RESULT_ABORTED|: Notifications can no longer be delivered for this
+  //       watcher for some unspecified reason, e.g., the watching thread may
+  //       be shutting down soon. Note that it is still necessary to explicitly
+  //       Cancel() the watch in this case.
   using ReadyCallback = base::Callback<void(MojoResult result)>;
 
-  Watcher(const tracked_objects::Location& from_here,
-          scoped_refptr<base::SingleThreadTaskRunner> runner =
-              base::ThreadTaskRunnerHandle::Get());
+  explicit Watcher(scoped_refptr<base::SingleThreadTaskRunner> runner =
+                       base::ThreadTaskRunnerHandle::Get());
 
   // NOTE: This destructor automatically calls |Cancel()| if the Watcher is
   // still active.
@@ -75,13 +80,10 @@ class MOJO_CPP_SYSTEM_EXPORT Watcher {
   Handle handle() const { return handle_; }
   ReadyCallback ready_callback() const { return callback_; }
 
- // Sets the tag used by the heap profiler.
- // |tag| must be a const string literal.
- void set_heap_profiler_tag(const char* heap_profiler_tag) {
-   heap_profiler_tag_ = heap_profiler_tag;
- }
-
  private:
+  class MessageLoopObserver;
+  friend class MessageLoopObserver;
+
   void OnHandleReady(MojoResult result);
 
   static void CallOnHandleReady(uintptr_t context,
@@ -98,6 +100,8 @@ class MOJO_CPP_SYSTEM_EXPORT Watcher {
   // for the thread.
   const bool is_default_task_runner_;
 
+  std::unique_ptr<MessageLoopObserver> message_loop_observer_;
+
   // A persistent weak reference to this Watcher which can be passed to the
   // Dispatcher any time this object should be signalled. Safe to access (but
   // not to dereference!) from any thread.
@@ -110,10 +114,6 @@ class MOJO_CPP_SYSTEM_EXPORT Watcher {
 
   // The callback to call when the handle is signaled.
   ReadyCallback callback_;
-
-  // Tag used to ID memory allocations that originated from notifications in
-  // this watcher.
-  const char* heap_profiler_tag_ = nullptr;
 
   base::WeakPtrFactory<Watcher> weak_factory_;
 

@@ -13,14 +13,12 @@
 #include "base/logging.h"
 #include "base/pickle.h"
 #include "ipc/ipc_param_traits.h"
-#include "mojo/public/cpp/bindings/bindings_export.h"
 #include "mojo/public/cpp/bindings/lib/array_internal.h"
 #include "mojo/public/cpp/bindings/lib/bindings_internal.h"
 #include "mojo/public/cpp/bindings/lib/native_struct_data.h"
 #include "mojo/public/cpp/bindings/lib/serialization_forward.h"
 #include "mojo/public/cpp/bindings/lib/serialization_util.h"
 #include "mojo/public/cpp/bindings/native_struct.h"
-#include "mojo/public/cpp/bindings/native_struct_data_view.h"
 
 namespace mojo {
 namespace internal {
@@ -104,7 +102,7 @@ struct NativeStructSerializerImpl {
   }
 };
 
-struct MOJO_CPP_BINDINGS_EXPORT UnmappedNativeStructSerializerImpl {
+struct UnmappedNativeStructSerializerImpl {
   static size_t PrepareToSerialize(const NativeStructPtr& input,
                                    SerializationContext* context);
   static void Serialize(const NativeStructPtr& input,
@@ -125,7 +123,7 @@ struct NativeStructSerializerImpl<const NativeStructPtr>
     : public UnmappedNativeStructSerializerImpl {};
 
 template <typename MaybeConstUserType>
-struct Serializer<NativeStructDataView, MaybeConstUserType>
+struct Serializer<NativeStructPtr, MaybeConstUserType>
     : public NativeStructSerializerImpl<MaybeConstUserType> {};
 
 }  // namespace internal

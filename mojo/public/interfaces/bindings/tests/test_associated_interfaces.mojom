@@ -4,8 +4,6 @@
 
 module mojo.test;
 
-import "mojo/public/interfaces/bindings/tests/ping_service.mojom";
-
 interface FooInterface {};
 
 struct StructContainsAssociated {
@@ -43,12 +41,4 @@ interface IntegerSender {
 interface IntegerSenderConnection {
   GetSender(associated IntegerSender& sender);
   AsyncGetSender() => (associated IntegerSender sender);
-};
-
-interface AssociatedPingProvider {
-  GetPing(associated PingService& request);
-};
-
-interface AssociatedPingProviderProvider {
-  GetPingProvider(associated AssociatedPingProvider& request);
 };

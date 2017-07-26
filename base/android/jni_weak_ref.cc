@@ -4,34 +4,24 @@
 
 #include "base/android/jni_weak_ref.h"
 
-#include <utility>
-
 #include "base/android/jni_android.h"
 #include "base/logging.h"
 
 using base::android::AttachCurrentThread;
 
-JavaObjectWeakGlobalRef::JavaObjectWeakGlobalRef() : obj_(nullptr) {}
+JavaObjectWeakGlobalRef::JavaObjectWeakGlobalRef()
+  : obj_(NULL) {
+}
 
 JavaObjectWeakGlobalRef::JavaObjectWeakGlobalRef(
     const JavaObjectWeakGlobalRef& orig)
-    : obj_(nullptr) {
+    : obj_(NULL) {
   Assign(orig);
-}
-
-JavaObjectWeakGlobalRef::JavaObjectWeakGlobalRef(JavaObjectWeakGlobalRef&& orig)
-    : obj_(orig.obj_) {
-  orig.obj_ = nullptr;
 }
 
 JavaObjectWeakGlobalRef::JavaObjectWeakGlobalRef(JNIEnv* env, jobject obj)
     : obj_(env->NewWeakGlobalRef(obj)) {
-}
-
-JavaObjectWeakGlobalRef::JavaObjectWeakGlobalRef(
-    JNIEnv* env,
-    const base::android::JavaRef<jobject>& obj)
-    : obj_(env->NewWeakGlobalRef(obj.obj())) {
+  DCHECK(obj_);
 }
 
 JavaObjectWeakGlobalRef::~JavaObjectWeakGlobalRef() {
@@ -42,14 +32,10 @@ void JavaObjectWeakGlobalRef::operator=(const JavaObjectWeakGlobalRef& rhs) {
   Assign(rhs);
 }
 
-void JavaObjectWeakGlobalRef::operator=(JavaObjectWeakGlobalRef&& rhs) {
-  std::swap(obj_, rhs.obj_);
-}
-
 void JavaObjectWeakGlobalRef::reset() {
   if (obj_) {
     AttachCurrentThread()->DeleteWeakGlobalRef(obj_);
-    obj_ = nullptr;
+    obj_ = NULL;
   }
 }
 
@@ -60,7 +46,7 @@ base::android::ScopedJavaLocalRef<jobject>
 
 base::android::ScopedJavaLocalRef<jobject> GetRealObject(
     JNIEnv* env, jweak obj) {
-  jobject real = nullptr;
+  jobject real = NULL;
   if (obj)
     real = env->NewLocalRef(obj);
   return base::android::ScopedJavaLocalRef<jobject>(env, real);
@@ -74,5 +60,5 @@ void JavaObjectWeakGlobalRef::Assign(const JavaObjectWeakGlobalRef& other) {
   if (obj_)
     env->DeleteWeakGlobalRef(obj_);
 
-  obj_ = other.obj_ ? env->NewWeakGlobalRef(other.obj_) : nullptr;
+  obj_ = other.obj_ ? env->NewWeakGlobalRef(other.obj_) : NULL;
 }

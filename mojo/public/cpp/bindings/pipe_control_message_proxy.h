@@ -6,36 +6,26 @@
 #define MOJO_PUBLIC_CPP_BINDINGS_PIPE_CONTROL_MESSAGE_PROXY_H_
 
 #include "base/macros.h"
-#include "base/optional.h"
-#include "mojo/public/cpp/bindings/bindings_export.h"
-#include "mojo/public/cpp/bindings/disconnect_reason.h"
 #include "mojo/public/cpp/bindings/interface_id.h"
 #include "mojo/public/cpp/bindings/lib/serialization_context.h"
-#include "mojo/public/cpp/bindings/message.h"
 
 namespace mojo {
 
 class MessageReceiver;
 
 // Proxy for request messages defined in pipe_control_messages.mojom.
-//
-// NOTE: This object may be used from multiple threads.
-class MOJO_CPP_BINDINGS_EXPORT PipeControlMessageProxy {
+class PipeControlMessageProxy {
  public:
-  // Doesn't take ownership of |receiver|. If This PipeControlMessageProxy will
-  // be used from multiple threads, |receiver| must be thread-safe.
+  // Doesn't take ownership of |receiver|. It must outlive this object.
   explicit PipeControlMessageProxy(MessageReceiver* receiver);
 
-  void NotifyPeerEndpointClosed(InterfaceId id,
-                                const base::Optional<DisconnectReason>& reason);
-
-  static Message ConstructPeerEndpointClosedMessage(
-      InterfaceId id,
-      const base::Optional<DisconnectReason>& reason);
+  void NotifyPeerEndpointClosed(InterfaceId id);
+  void NotifyEndpointClosedBeforeSent(InterfaceId id);
 
  private:
   // Not owned.
   MessageReceiver* receiver_;
+  internal::SerializationContext context_;
 
   DISALLOW_COPY_AND_ASSIGN(PipeControlMessageProxy);
 };

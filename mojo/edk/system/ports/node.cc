@@ -8,7 +8,6 @@
 
 #include <utility>
 
-#include "base/atomicops.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
@@ -65,10 +64,10 @@ Node::~Node() {
     DLOG(WARNING) << "Unclean shutdown for node " << name_;
 }
 
-bool Node::CanShutdownCleanly(ShutdownPolicy policy) {
+bool Node::CanShutdownCleanly(bool allow_local_ports) {
   base::AutoLock ports_lock(ports_lock_);
 
-  if (policy == ShutdownPolicy::DONT_ALLOW_LOCAL_PORTS) {
+  if (!allow_local_ports) {
 #if DCHECK_IS_ON()
     for (auto entry : ports_) {
       DVLOG(2) << "Port " << entry.first << " referencing node "
@@ -78,8 +77,6 @@ bool Node::CanShutdownCleanly(ShutdownPolicy policy) {
 #endif
     return ports_.empty();
   }
-
-  DCHECK_EQ(policy, ShutdownPolicy::ALLOW_LOCAL_PORTS);
 
   // NOTE: This is not efficient, though it probably doesn't need to be since
   // relatively few ports should be open during shutdown and shutdown doesn't
@@ -117,7 +114,8 @@ int Node::CreateUninitializedPort(PortRef* port_ref) {
   PortName port_name;
   delegate_->GenerateRandomPortName(&port_name);
 
-  scoped_refptr<Port> port(new Port(kInitialSequenceNum, kInitialSequenceNum));
+  scoped_refptr<Port> port = make_scoped_refptr(new Port(kInitialSequenceNum,
+                                                         kInitialSequenceNum));
   int rv = AddPortWithName(port_name, port);
   if (rv != OK)
     return rv;
@@ -169,7 +167,7 @@ int Node::CreatePortPair(PortRef* port0_ref, PortRef* port1_ref) {
 }
 
 int Node::SetUserData(const PortRef& port_ref,
-                      scoped_refptr<UserData> user_data) {
+                      const scoped_refptr<UserData>& user_data) {
   Port* port = port_ref.port();
 
   base::AutoLock lock(port->lock);
@@ -263,12 +261,16 @@ int Node::GetStatus(const PortRef& port_ref, PortStatus* port_status) {
   return OK;
 }
 
-int Node::GetMessage(const PortRef& port_ref,
-                     ScopedMessage* message,
-                     MessageFilter* filter) {
+int Node::GetMessage(const PortRef& port_ref, ScopedMessage* message) {
+  return GetMessageIf(port_ref, nullptr, message);
+}
+
+int Node::GetMessageIf(const PortRef& port_ref,
+                       std::function<bool(const Message&)> selector,
+                       ScopedMessage* message) {
   *message = nullptr;
 
-  DVLOG(4) << "GetMessage for " << port_ref.name() << "@" << name_;
+  DVLOG(2) << "GetMessageIf for " << port_ref.name() << "@" << name_;
 
   Port* port = port_ref.port();
   {
@@ -284,7 +286,7 @@ int Node::GetMessage(const PortRef& port_ref,
     if (!CanAcceptMoreMessages(port))
       return ERROR_PORT_PEER_CLOSED;
 
-    port->message_queue.GetNextMessage(message, filter);
+    port->message_queue.GetNextMessageIf(std::move(selector), message);
   }
 
   // Allow referenced ports to trigger PortStatusChanged calls.
@@ -424,7 +426,7 @@ int Node::OnUserMessage(ScopedMessage message) {
     ports_buf << message->ports()[i];
   }
 
-  DVLOG(4) << "AcceptMessage " << event->sequence_num
+  DVLOG(2) << "AcceptMessage " << event->sequence_num
              << " [ports=" << ports_buf.str() << "] at "
              << port_name << "@" << name_;
 #endif
@@ -504,7 +506,7 @@ int Node::OnPortAccepted(const PortName& port_name) {
            << " pointing to "
            << port->peer_port_name << "@" << port->peer_node_name;
 
-  return BeginProxying(PortRef(port_name, std::move(port)));
+  return BeginProxying(PortRef(port_name, port));
 }
 
 int Node::OnObserveProxy(const PortName& port_name,
@@ -529,6 +531,17 @@ int Node::OnObserveProxy(const PortName& port_name,
   scoped_refptr<Port> port = GetPort(port_name);
   if (!port) {
     DVLOG(1) << "ObserveProxy: " << port_name << "@" << name_ << " not found";
+
+    if (port_name != event.proxy_port_name &&
+        port_name != event.proxy_to_port_name) {
+      // The receiving port may have been removed while this message was in
+      // transit.  In this case, we restart the ObserveProxy circulation from
+      // the referenced proxy port to avoid leaking the proxy.
+      delegate_->ForwardMessage(
+          event.proxy_node_name,
+          NewInternalMessage(
+              event.proxy_port_name, EventType::kObserveProxy, event));
+    }
     return OK;
   }
 
@@ -619,7 +632,7 @@ int Node::OnObserveProxyAck(const PortName& port_name,
     port->remove_proxy_on_last_message = true;
     port->last_sequence_num_to_receive = last_sequence_num;
   }
-  TryRemoveProxy(PortRef(port_name, std::move(port)));
+  TryRemoveProxy(PortRef(port_name, port));
   return OK;
 }
 
@@ -696,7 +709,7 @@ int Node::OnObserveClosure(const PortName& port_name,
                          forwarded_data));
 
   if (notify_delegate) {
-    PortRef port_ref(port_name, std::move(port));
+    PortRef port_ref(port_name, port);
     delegate_->PortStatusChanged(port_ref);
   }
   return OK;
@@ -771,10 +784,11 @@ int Node::OnMergePort(const PortName& port_name,
   return ERROR_PORT_STATE_UNEXPECTED;
 }
 
-int Node::AddPortWithName(const PortName& port_name, scoped_refptr<Port> port) {
+int Node::AddPortWithName(const PortName& port_name,
+                          const scoped_refptr<Port>& port) {
   base::AutoLock lock(ports_lock_);
 
-  if (!ports_.insert(std::make_pair(port_name, std::move(port))).second)
+  if (!ports_.insert(std::make_pair(port_name, port)).second)
     return OOPS(ERROR_PORT_EXISTS);  // Suggests a bad UUID generator.
 
   DVLOG(2) << "Created port " << port_name << "@" << name_;
@@ -802,11 +816,6 @@ scoped_refptr<Port> Node::GetPort_Locked(const PortName& port_name) {
   auto iter = ports_.find(port_name);
   if (iter == ports_.end())
     return nullptr;
-
-#if defined(OS_ANDROID) && defined(ARCH_CPU_ARM64)
-  // Workaround for https://crbug.com/665869.
-  base::subtle::MemoryBarrier();
-#endif
 
   return iter->second;
 }
@@ -994,10 +1003,10 @@ int Node::AcceptPort(const PortName& port_name,
            << port->last_sequence_num_to_receive << "]";
 
   // A newly accepted port is not signalable until the message referencing the
-  // new port finds its way to the consumer (see GetMessage).
+  // new port finds its way to the consumer (see GetMessageIf).
   port->message_queue.set_signalable(false);
 
-  int rv = AddPortWithName(port_name, std::move(port));
+  int rv = AddPortWithName(port_name, port);
   if (rv != OK)
     return rv;
 
@@ -1078,7 +1087,7 @@ int Node::WillSendMessage_Locked(const LockedPort& port,
   }
 
 #if DCHECK_IS_ON()
-  DVLOG(4) << "Sending message "
+  DVLOG(2) << "Sending message "
            << GetEventData<UserEventData>(*message)->sequence_num
            << " [ports=" << ports_buf.str() << "]"
            << " from " << port_name << "@" << name_
@@ -1176,7 +1185,7 @@ int Node::ForwardMessages_Locked(const LockedPort& port,
 
   for (;;) {
     ScopedMessage message;
-    port->message_queue.GetNextMessage(&message, nullptr);
+    port->message_queue.GetNextMessageIf(nullptr, &message);
     if (!message)
       break;
 

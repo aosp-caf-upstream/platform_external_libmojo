@@ -88,18 +88,17 @@ class ChannelPosix : public Channel,
                      public base::MessageLoopForIO::Watcher {
  public:
   ChannelPosix(Delegate* delegate,
-               ConnectionParams connection_params,
+               ScopedPlatformHandle handle,
                scoped_refptr<base::TaskRunner> io_task_runner)
       : Channel(delegate),
         self_(this),
-        handle_(connection_params.TakeChannelHandle()),
+        handle_(std::move(handle)),
         io_task_runner_(io_task_runner)
 #if defined(OS_MACOSX)
         ,
         handles_to_close_(new PlatformHandleVector)
 #endif
   {
-    CHECK(handle_.is_valid());
   }
 
   void Start() override {
@@ -211,22 +210,12 @@ class ChannelPosix : public Channel,
   void StartOnIOThread() {
     DCHECK(!read_watcher_);
     DCHECK(!write_watcher_);
-    read_watcher_.reset(
-        new base::MessageLoopForIO::FileDescriptorWatcher(FROM_HERE));
+    read_watcher_.reset(new base::MessageLoopForIO::FileDescriptorWatcher);
+    write_watcher_.reset(new base::MessageLoopForIO::FileDescriptorWatcher);
+    base::MessageLoopForIO::current()->WatchFileDescriptor(
+        handle_.get().handle, true /* persistent */,
+        base::MessageLoopForIO::WATCH_READ, read_watcher_.get(), this);
     base::MessageLoop::current()->AddDestructionObserver(this);
-    if (handle_.get().needs_connection) {
-      base::MessageLoopForIO::current()->WatchFileDescriptor(
-          handle_.get().handle, false /* persistent */,
-          base::MessageLoopForIO::WATCH_READ, read_watcher_.get(), this);
-    } else {
-      write_watcher_.reset(
-          new base::MessageLoopForIO::FileDescriptorWatcher(FROM_HERE));
-      base::MessageLoopForIO::current()->WatchFileDescriptor(
-          handle_.get().handle, true /* persistent */,
-          base::MessageLoopForIO::WATCH_READ, read_watcher_.get(), this);
-      base::AutoLock lock(write_lock_);
-      FlushOutgoingMessagesNoLock();
-    }
   }
 
   void WaitForWriteOnIOThread() {
@@ -276,24 +265,6 @@ class ChannelPosix : public Channel,
   // base::MessageLoopForIO::Watcher:
   void OnFileCanReadWithoutBlocking(int fd) override {
     CHECK_EQ(fd, handle_.get().handle);
-    if (handle_.get().needs_connection) {
-#if !defined(OS_NACL)
-      read_watcher_.reset();
-      base::MessageLoop::current()->RemoveDestructionObserver(this);
-
-      ScopedPlatformHandle accept_fd;
-      ServerAcceptConnection(handle_.get(), &accept_fd);
-      if (!accept_fd.is_valid()) {
-        OnError();
-        return;
-      }
-      handle_ = std::move(accept_fd);
-      StartOnIOThread();
-#else
-      NOTREACHED();
-#endif
-      return;
-    }
 
     bool read_error = false;
     size_t next_read_size = 0;
@@ -350,10 +321,6 @@ class ChannelPosix : public Channel,
   // cannot be written, it's queued and a wait is initiated to write the message
   // ASAP on the I/O thread.
   bool WriteNoLock(MessageView message_view) {
-    if (handle_.get().needs_connection) {
-      outgoing_messages_.emplace_front(std::move(message_view));
-      return true;
-    }
     size_t bytes_written = 0;
     do {
       message_view.advance_data_offset(bytes_written);
@@ -388,7 +355,7 @@ class ChannelPosix : public Channel,
           }
           MessagePtr fds_message(
               new Channel::Message(sizeof(fds[0]) * fds.size(), 0,
-                                   Message::MessageType::HANDLES_SENT));
+                                   Message::Header::MessageType::HANDLES_SENT));
           memcpy(fds_message->mutable_payload(), fds.data(),
                  sizeof(fds[0]) * fds.size());
           outgoing_messages_.emplace_back(std::move(fds_message), 0);
@@ -403,26 +370,8 @@ class ChannelPosix : public Channel,
       }
 
       if (result < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK
-#if defined(OS_MACOSX)
-            // On OS X if sendmsg() is trying to send fds between processes and
-            // there isn't enough room in the output buffer to send the fd
-            // structure over atomically then EMSGSIZE is returned.
-            //
-            // EMSGSIZE presents a problem since the system APIs can only call
-            // us when there's room in the socket buffer and not when there is
-            // "enough" room.
-            //
-            // The current behavior is to return to the event loop when EMSGSIZE
-            // is received and hopefull service another FD.  This is however
-            // still technically a busy wait since the event loop will call us
-            // right back until the receiver has read enough data to allow
-            // passing the FD over atomically.
-            && errno != EMSGSIZE
-#endif
-            ) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
           return false;
-        }
         message_view.SetHandles(std::move(handles));
         outgoing_messages_.emplace_front(std::move(message_view));
         WaitForWriteOnIOThreadNoLock();
@@ -463,22 +412,22 @@ class ChannelPosix : public Channel,
   }
 
 #if defined(OS_MACOSX)
-  bool OnControlMessage(Message::MessageType message_type,
+  bool OnControlMessage(Message::Header::MessageType message_type,
                         const void* payload,
                         size_t payload_size,
                         ScopedPlatformHandleVectorPtr handles) override {
     switch (message_type) {
-      case Message::MessageType::HANDLES_SENT: {
+      case Message::Header::MessageType::HANDLES_SENT: {
         if (payload_size == 0)
           break;
         MessagePtr message(new Channel::Message(
-            payload_size, 0, Message::MessageType::HANDLES_SENT_ACK));
+            payload_size, 0, Message::Header::MessageType::HANDLES_SENT_ACK));
         memcpy(message->mutable_payload(), payload, payload_size);
         Write(std::move(message));
         return true;
       }
 
-      case Message::MessageType::HANDLES_SENT_ACK: {
+      case Message::Header::MessageType::HANDLES_SENT_ACK: {
         size_t num_fds = payload_size / sizeof(int);
         if (num_fds == 0 || payload_size % sizeof(int) != 0)
           break;
@@ -562,10 +511,9 @@ class ChannelPosix : public Channel,
 // static
 scoped_refptr<Channel> Channel::Create(
     Delegate* delegate,
-    ConnectionParams connection_params,
+    ScopedPlatformHandle platform_handle,
     scoped_refptr<base::TaskRunner> io_task_runner) {
-  return new ChannelPosix(delegate, std::move(connection_params),
-                          io_task_runner);
+  return new ChannelPosix(delegate, std::move(platform_handle), io_task_runner);
 }
 
 }  // namespace edk
