@@ -4,6 +4,8 @@
 
 group("interfaces") {
   deps = [
+    "application",
     "bindings",
+    "network",
   ]
 }

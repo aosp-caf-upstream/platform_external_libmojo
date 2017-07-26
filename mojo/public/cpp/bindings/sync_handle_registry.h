@@ -11,7 +11,6 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/threading/thread_checker.h"
-#include "mojo/public/cpp/bindings/bindings_export.h"
 #include "mojo/public/cpp/system/core.h"
 
 namespace mojo {
@@ -20,8 +19,7 @@ namespace mojo {
 // be watched together.
 //
 // This class is not thread safe.
-class MOJO_CPP_BINDINGS_EXPORT SyncHandleRegistry
-    : public base::RefCounted<SyncHandleRegistry> {
+class SyncHandleRegistry : public base::RefCounted<SyncHandleRegistry> {
  public:
   // Returns a thread-local object.
   static scoped_refptr<SyncHandleRegistry> current();

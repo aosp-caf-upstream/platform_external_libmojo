@@ -23,16 +23,12 @@ import md5_check  # pylint: disable=relative-import
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 from pylib.constants import host_paths
 
-sys.path.append(os.path.join(os.path.dirname(__file__),
-                             os.pardir, os.pardir, os.pardir))
-import gn_helpers
-
 COLORAMA_ROOT = os.path.join(host_paths.DIR_SOURCE_ROOT,
                              'third_party', 'colorama', 'src')
 # aapt should ignore OWNERS files in addition the default ignore pattern.
 AAPT_IGNORE_PATTERN = ('!OWNERS:!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:' +
                        '!CVS:!thumbs.db:!picasa.ini:!*~:!*.d.stamp')
-HERMETIC_TIMESTAMP = (2001, 1, 1, 0, 0, 0)
+_HERMETIC_TIMESTAMP = (2001, 1, 1, 0, 0, 0)
 _HERMETIC_FILE_ATTR = (0644 << 16L)
 
 
@@ -82,23 +78,31 @@ def FindInDirectories(directories, filename_filter):
 
 
 def ParseGnList(gn_string):
-  """Converts a command-line parameter into a list.
+  # TODO(brettw) bug 573132: This doesn't handle GN escaping properly, so any
+  # weird characters like $ or \ in the strings will be corrupted.
+  #
+  # The code should import build/gn_helpers.py and then do:
+  #   parser = gn_helpers.GNValueParser(gn_string)
+  #   return return parser.ParseList()
+  # As of this writing, though, there is a CastShell build script that sends
+  # JSON through this function, and using correct GN parsing corrupts that.
+  #
+  # We need to be consistent about passing either JSON or GN lists through
+  # this function.
+  return ast.literal_eval(gn_string)
 
-  If the input starts with a '[' it is assumed to be a GN-formatted list and
-  it will be parsed accordingly. When empty an empty list will be returned.
-  Otherwise, the parameter will be treated as a single raw string (not
-  GN-formatted in that it's not assumed to have literal quotes that must be
-  removed) and a list will be returned containing that string.
 
-  The common use for this behavior is in the Android build where things can
-  take lists of @FileArg references that are expanded via ExpandFileArgs.
-  """
-  if gn_string.startswith('['):
-    parser = gn_helpers.GNValueParser(gn_string)
-    return parser.ParseList()
-  if len(gn_string):
-    return [ gn_string ]
-  return []
+def ParseGypList(gyp_string):
+  # The ninja generator doesn't support $ in strings, so use ## to
+  # represent $.
+  # TODO(cjhopman): Remove when
+  # https://code.google.com/p/gyp/issues/detail?id=327
+  # is addressed.
+  gyp_string = gyp_string.replace('##', '$')
+
+  if gyp_string.startswith('['):
+    return ParseGnList(gyp_string)
+  return shlex.split(gyp_string)
 
 
 def CheckOptions(options, parser, required=None):
@@ -224,7 +228,6 @@ def ExtractAll(zip_path, path=None, no_clobber=True, pattern=None,
   if not zipfile.is_zipfile(zip_path):
     raise Exception('Invalid zip file: %s' % zip_path)
 
-  extracted = []
   with zipfile.ZipFile(zip_path) as z:
     for name in z.namelist():
       if name.endswith('/'):
@@ -245,12 +248,8 @@ def ExtractAll(zip_path, path=None, no_clobber=True, pattern=None,
         dest = os.path.join(path, name)
         MakeDirectory(os.path.dirname(dest))
         os.symlink(z.read(name), dest)
-        extracted.append(dest)
       else:
         z.extract(name, path)
-        extracted.append(os.path.join(path, name))
-
-  return extracted
 
 
 def AddToZipHermetic(zip_file, zip_path, src_path=None, data=None,
@@ -268,7 +267,7 @@ def AddToZipHermetic(zip_file, zip_path, src_path=None, data=None,
   assert (src_path is None) != (data is None), (
       '|src_path| and |data| are mutually exclusive.')
   CheckZipPath(zip_path)
-  zipinfo = zipfile.ZipInfo(filename=zip_path, date_time=HERMETIC_TIMESTAMP)
+  zipinfo = zipfile.ZipInfo(filename=zip_path, date_time=_HERMETIC_TIMESTAMP)
   zipinfo.external_attr = _HERMETIC_FILE_ATTR
 
   if src_path and os.path.islink(src_path):
@@ -333,14 +332,7 @@ def MergeZips(output, inputs, exclude_patterns=None, path_transform=None):
   path_transform = path_transform or (lambda p, z: p)
   added_names = set()
 
-  output_is_already_open = not isinstance(output, basestring)
-  if output_is_already_open:
-    assert isinstance(output, zipfile.ZipFile)
-    out_zip = output
-  else:
-    out_zip = zipfile.ZipFile(output, 'w')
-
-  try:
+  with zipfile.ZipFile(output, 'w') as out_zip:
     for in_file in inputs:
       with zipfile.ZipFile(in_file, 'r') as in_zip:
         in_zip._expected_crc = None
@@ -351,12 +343,8 @@ def MergeZips(output, inputs, exclude_patterns=None, path_transform=None):
           dst_name = path_transform(info.filename, in_file)
           already_added = dst_name in added_names
           if not already_added and not MatchesGlob(dst_name, exclude_patterns):
-            AddToZipHermetic(out_zip, dst_name, data=in_zip.read(info),
-                             compress=info.compress_type != zipfile.ZIP_STORED)
+            AddToZipHermetic(out_zip, dst_name, data=in_zip.read(info))
             added_names.add(dst_name)
-  finally:
-    if not output_is_already_open:
-      out_zip.close()
 
 
 def PrintWarning(message):
@@ -411,7 +399,8 @@ def GetPythonDependencies():
   A path is assumed to be a "system" import if it is outside of chromium's
   src/. The paths will be relative to the current directory.
   """
-  module_paths = GetModulePaths()
+  module_paths = (m.__file__ for m in sys.modules.itervalues()
+                  if m is not None and hasattr(m, '__file__'))
 
   abs_module_paths = map(os.path.abspath, module_paths)
 
@@ -428,30 +417,6 @@ def GetPythonDependencies():
   return sorted(set(non_system_module_paths))
 
 
-def GetModulePaths():
-  """Returns the paths to all of the modules in sys.modules."""
-  ForceLazyModulesToLoad()
-  return (m.__file__ for m in sys.modules.itervalues()
-          if m is not None and hasattr(m, '__file__'))
-
-
-def ForceLazyModulesToLoad():
-  """Forces any lazily imported modules to fully load themselves.
-
-  Inspecting the modules' __file__ attribute causes lazily imported modules
-  (e.g. from email) to get fully imported and update sys.modules. Iterate
-  over the values until sys.modules stabilizes so that no modules are missed.
-  """
-  while True:
-    num_modules_before = len(sys.modules.keys())
-    for m in sys.modules.values():
-      if m is not None and hasattr(m, '__file__'):
-        _ = m.__file__
-    num_modules_after = len(sys.modules.keys())
-    if num_modules_before == num_modules_after:
-      break
-
-
 def AddDepfileOption(parser):
   # TODO(agrieve): Get rid of this once we've moved to argparse.
   if hasattr(parser, 'add_option'):
@@ -459,20 +424,14 @@ def AddDepfileOption(parser):
   else:
     func = parser.add_argument
   func('--depfile',
-       help='Path to depfile (refer to `gn help depfile`)')
+       help='Path to depfile. Must be specified as the action\'s first output.')
 
 
-def WriteDepfile(depfile_path, first_gn_output, inputs=None, add_pydeps=True):
-  assert depfile_path != first_gn_output  # http://crbug.com/646165
-  inputs = inputs or []
-  if add_pydeps:
-    inputs = GetPythonDependencies() + inputs
-  MakeDirectory(os.path.dirname(depfile_path))
-  # Ninja does not support multiple outputs in depfiles.
-  with open(depfile_path, 'w') as depfile:
-    depfile.write(first_gn_output.replace(' ', '\\ '))
+def WriteDepfile(path, dependencies):
+  with open(path, 'w') as depfile:
+    depfile.write(path)
     depfile.write(': ')
-    depfile.write(' '.join(i.replace(' ', '\\ ') for i in inputs))
+    depfile.write(' '.join(dependencies))
     depfile.write('\n')
 
 
@@ -510,23 +469,9 @@ def ExpandFileArgs(args):
     for k in lookup_path[1:]:
       expansion = expansion[k]
 
-    # This should match ParseGNList. The output is either a GN-formatted list
-    # or a literal (with no quotes).
-    if isinstance(expansion, list):
-      new_args[i] = arg[:match.start()] + gn_helpers.ToGNString(expansion)
-    else:
-      new_args[i] = arg[:match.start()] + str(expansion)
+    new_args[i] = arg[:match.start()] + str(expansion)
 
   return new_args
-
-
-def ReadSourcesList(sources_list_file_name):
-  """Reads a GN-written file containing list of file names and returns a list.
-
-  Note that this function should not be used to parse response files.
-  """
-  with open(sources_list_file_name) as f:
-    return [file_name.strip() for file_name in f]
 
 
 def CallAndWriteDepfileIfStale(function, options, record_path=None,
@@ -568,8 +513,7 @@ def CallAndWriteDepfileIfStale(function, options, record_path=None,
       all_depfile_deps = list(python_deps)
       if depfile_deps:
         all_depfile_deps.extend(depfile_deps)
-      WriteDepfile(options.depfile, output_paths[0], all_depfile_deps,
-                   add_pydeps=False)
+      WriteDepfile(options.depfile, all_depfile_deps)
     if stamp_file:
       Touch(stamp_file)
 

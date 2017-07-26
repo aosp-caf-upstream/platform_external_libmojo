@@ -5,9 +5,25 @@
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_STRING_TRAITS_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_STRING_TRAITS_H_
 
-#include "mojo/public/cpp/bindings/string_data_view.h"
+#include "base/logging.h"
+#include "mojo/public/cpp/bindings/lib/array_internal.h"
 
 namespace mojo {
+
+// Access to the contents of a serialized string.
+class StringDataView {
+ public:
+  explicit StringDataView(internal::String_Data* data) : data_(data) {
+    DCHECK(data_);
+  }
+
+  const char* storage() const { return data_->storage(); }
+
+  size_t size() const { return data_->size(); }
+
+ private:
+  internal::String_Data* data_;
+};
 
 // This must be specialized for any type |T| to be serialized/deserialized as
 // a mojom string.
@@ -24,7 +40,6 @@ namespace mojo {
 //     static size_t GetSize(const CustomString& input);
 //     static const char* GetData(const CustomString& input);
 //
-//     // The caller guarantees that |!input.is_null()|.
 //     static bool Read(StringDataView input, CustomString* output);
 //   };
 //

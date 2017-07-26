@@ -5,12 +5,9 @@
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_LIB_HANDLE_INTERFACE_SERIALIZATION_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_LIB_HANDLE_INTERFACE_SERIALIZATION_H_
 
-#include <type_traits>
-
 #include "mojo/public/cpp/bindings/associated_group_controller.h"
 #include "mojo/public/cpp/bindings/associated_interface_ptr_info.h"
 #include "mojo/public/cpp/bindings/associated_interface_request.h"
-#include "mojo/public/cpp/bindings/interface_data_view.h"
 #include "mojo/public/cpp/bindings/interface_ptr.h"
 #include "mojo/public/cpp/bindings/interface_request.h"
 #include "mojo/public/cpp/bindings/lib/bindings_internal.h"
@@ -21,98 +18,52 @@
 namespace mojo {
 namespace internal {
 
-template <typename Base, typename T>
-struct Serializer<AssociatedInterfacePtrInfoDataView<Base>,
+template <typename T>
+struct Serializer<AssociatedInterfacePtrInfo<T>,
                   AssociatedInterfacePtrInfo<T>> {
-  static_assert(std::is_base_of<Base, T>::value, "Interface type mismatch.");
-
-  static size_t PrepareToSerialize(const AssociatedInterfacePtrInfo<T>& input,
-                                   SerializationContext* context) {
-    if (input.handle().is_valid())
-      context->associated_endpoint_count++;
-    return 0;
-  }
-
   static void Serialize(AssociatedInterfacePtrInfo<T>& input,
                         AssociatedInterface_Data* output,
                         SerializationContext* context) {
-    DCHECK(!input.handle().is_valid() || input.handle().pending_association());
-    if (input.handle().is_valid()) {
-      // Set to the index of the element pushed to the back of the vector.
-      output->handle.value =
-          static_cast<uint32_t>(context->associated_endpoint_handles.size());
-      context->associated_endpoint_handles.push_back(input.PassHandle());
-    } else {
-      output->handle.value = kEncodedInvalidHandleValue;
-    }
+    DCHECK(!input.handle().is_valid() || !input.handle().is_local());
+    DCHECK_EQ(input.handle().group_controller(),
+              context->group_controller.get());
     output->version = input.version();
+    output->interface_id = input.PassHandle().release();
   }
 
   static bool Deserialize(AssociatedInterface_Data* input,
                           AssociatedInterfacePtrInfo<T>* output,
                           SerializationContext* context) {
-    if (input->handle.is_valid()) {
-      DCHECK_LT(input->handle.value,
-                context->associated_endpoint_handles.size());
-      output->set_handle(
-          std::move(context->associated_endpoint_handles[input->handle.value]));
-    } else {
-      output->set_handle(ScopedInterfaceEndpointHandle());
-    }
+    output->set_handle(context->group_controller->CreateLocalEndpointHandle(
+        FetchAndReset(&input->interface_id)));
     output->set_version(input->version);
     return true;
   }
 };
 
-template <typename Base, typename T>
-struct Serializer<AssociatedInterfaceRequestDataView<Base>,
+template <typename T>
+struct Serializer<AssociatedInterfaceRequest<T>,
                   AssociatedInterfaceRequest<T>> {
-  static_assert(std::is_base_of<Base, T>::value, "Interface type mismatch.");
-
-  static size_t PrepareToSerialize(const AssociatedInterfaceRequest<T>& input,
-                                   SerializationContext* context) {
-    if (input.handle().is_valid())
-      context->associated_endpoint_count++;
-    return 0;
-  }
-
   static void Serialize(AssociatedInterfaceRequest<T>& input,
-                        AssociatedEndpointHandle_Data* output,
+                        AssociatedInterfaceRequest_Data* output,
                         SerializationContext* context) {
-    DCHECK(!input.handle().is_valid() || input.handle().pending_association());
-    if (input.handle().is_valid()) {
-      // Set to the index of the element pushed to the back of the vector.
-      output->value =
-          static_cast<uint32_t>(context->associated_endpoint_handles.size());
-      context->associated_endpoint_handles.push_back(input.PassHandle());
-    } else {
-      output->value = kEncodedInvalidHandleValue;
-    }
+    DCHECK(!input.handle().is_valid() || !input.handle().is_local());
+    DCHECK_EQ(input.handle().group_controller(),
+              context->group_controller.get());
+    output->interface_id = input.PassHandle().release();
   }
 
-  static bool Deserialize(AssociatedEndpointHandle_Data* input,
+  static bool Deserialize(AssociatedInterfaceRequest_Data* input,
                           AssociatedInterfaceRequest<T>* output,
                           SerializationContext* context) {
-    if (input->is_valid()) {
-      DCHECK_LT(input->value, context->associated_endpoint_handles.size());
-      output->Bind(
-          std::move(context->associated_endpoint_handles[input->value]));
-    } else {
-      output->Bind(ScopedInterfaceEndpointHandle());
-    }
+    output->Bind(context->group_controller->CreateLocalEndpointHandle(
+        FetchAndReset(&input->interface_id)));
     return true;
   }
 };
 
-template <typename Base, typename T>
-struct Serializer<InterfacePtrDataView<Base>, InterfacePtr<T>> {
-  static_assert(std::is_base_of<Base, T>::value, "Interface type mismatch.");
-
-  static size_t PrepareToSerialize(const InterfacePtr<T>& input,
-                                   SerializationContext* context) {
-    return 0;
-  }
-
+template <typename T>
+struct Serializer<InterfacePtr<T>, InterfacePtr<T>> {
   static void Serialize(InterfacePtr<T>& input,
                         Interface_Data* output,
                         SerializationContext* context) {
@@ -131,15 +82,8 @@ struct Serializer<InterfacePtrDataView<Base>, InterfacePtr<T>> {
   }
 };
 
-template <typename Base, typename T>
-struct Serializer<InterfaceRequestDataView<Base>, InterfaceRequest<T>> {
-  static_assert(std::is_base_of<Base, T>::value, "Interface type mismatch.");
-
-  static size_t PrepareToSerialize(const InterfaceRequest<T>& input,
-                                   SerializationContext* context) {
-    return 0;
-  }
-
+template <typename T>
+struct Serializer<InterfaceRequest<T>, InterfaceRequest<T>> {
   static void Serialize(InterfaceRequest<T>& input,
                         Handle_Data* output,
                         SerializationContext* context) {
@@ -156,11 +100,6 @@ struct Serializer<InterfaceRequestDataView<Base>, InterfaceRequest<T>> {
 
 template <typename T>
 struct Serializer<ScopedHandleBase<T>, ScopedHandleBase<T>> {
-  static size_t PrepareToSerialize(const ScopedHandleBase<T>& input,
-                                   SerializationContext* context) {
-    return 0;
-  }
-
   static void Serialize(ScopedHandleBase<T>& input,
                         Handle_Data* output,
                         SerializationContext* context) {

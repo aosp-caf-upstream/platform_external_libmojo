@@ -13,7 +13,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "base/unguessable_token.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "ipc/ipc_channel_handle.h"
@@ -22,7 +21,6 @@
 #include "ipc/ipc_mojo_param_traits.h"
 
 #if defined(OS_POSIX)
-#include "base/file_descriptor_posix.h"
 #include "ipc/ipc_platform_file_attachment_posix.h"
 #endif
 
@@ -43,7 +41,7 @@ namespace IPC {
 
 namespace {
 
-const int kMaxRecursionDepth = 200;
+const int kMaxRecursionDepth = 100;
 
 template<typename CharType>
 void LogBytes(const std::vector<CharType>& data, std::string* out) {
@@ -78,25 +76,25 @@ void GetValueSize(base::PickleSizer* sizer,
                   const base::Value* value,
                   int recursion) {
   if (recursion > kMaxRecursionDepth) {
-    LOG(ERROR) << "Max recursion depth hit in GetValueSize.";
+    LOG(WARNING) << "Max recursion depth hit in GetValueSize.";
     return;
   }
 
   sizer->AddInt();
   switch (value->GetType()) {
-    case base::Value::Type::NONE:
+    case base::Value::TYPE_NULL:
       break;
-    case base::Value::Type::BOOLEAN:
+    case base::Value::TYPE_BOOLEAN:
       sizer->AddBool();
       break;
-    case base::Value::Type::INTEGER:
+    case base::Value::TYPE_INTEGER:
       sizer->AddInt();
       break;
-    case base::Value::Type::DOUBLE:
+    case base::Value::TYPE_DOUBLE:
       sizer->AddDouble();
       break;
-    case base::Value::Type::STRING: {
-      const base::Value* result;
+    case base::Value::TYPE_STRING: {
+      const base::StringValue* result;
       value->GetAsString(&result);
       if (value->GetAsString(&result)) {
         DCHECK(result);
@@ -109,11 +107,13 @@ void GetValueSize(base::PickleSizer* sizer,
       }
       break;
     }
-    case base::Value::Type::BINARY: {
-      sizer->AddData(static_cast<int>(value->GetSize()));
+    case base::Value::TYPE_BINARY: {
+      const base::BinaryValue* binary =
+          static_cast<const base::BinaryValue*>(value);
+      sizer->AddData(static_cast<int>(binary->GetSize()));
       break;
     }
-    case base::Value::Type::DICTIONARY: {
+    case base::Value::TYPE_DICTIONARY: {
       sizer->AddInt();
       const base::DictionaryValue* dict =
           static_cast<const base::DictionaryValue*>(value);
@@ -124,7 +124,7 @@ void GetValueSize(base::PickleSizer* sizer,
       }
       break;
     }
-    case base::Value::Type::LIST: {
+    case base::Value::TYPE_LIST: {
       sizer->AddInt();
       const base::ListValue* list = static_cast<const base::ListValue*>(value);
       for (const auto& entry : *list) {
@@ -140,48 +140,50 @@ void GetValueSize(base::PickleSizer* sizer,
 void WriteValue(base::Pickle* m, const base::Value* value, int recursion) {
   bool result;
   if (recursion > kMaxRecursionDepth) {
-    LOG(ERROR) << "Max recursion depth hit in WriteValue.";
+    LOG(WARNING) << "Max recursion depth hit in WriteValue.";
     return;
   }
 
-  m->WriteInt(static_cast<int>(value->GetType()));
+  m->WriteInt(value->GetType());
 
   switch (value->GetType()) {
-    case base::Value::Type::NONE:
+    case base::Value::TYPE_NULL:
     break;
-    case base::Value::Type::BOOLEAN: {
+    case base::Value::TYPE_BOOLEAN: {
       bool val;
       result = value->GetAsBoolean(&val);
       DCHECK(result);
       WriteParam(m, val);
       break;
     }
-    case base::Value::Type::INTEGER: {
+    case base::Value::TYPE_INTEGER: {
       int val;
       result = value->GetAsInteger(&val);
       DCHECK(result);
       WriteParam(m, val);
       break;
     }
-    case base::Value::Type::DOUBLE: {
+    case base::Value::TYPE_DOUBLE: {
       double val;
       result = value->GetAsDouble(&val);
       DCHECK(result);
       WriteParam(m, val);
       break;
     }
-    case base::Value::Type::STRING: {
+    case base::Value::TYPE_STRING: {
       std::string val;
       result = value->GetAsString(&val);
       DCHECK(result);
       WriteParam(m, val);
       break;
     }
-    case base::Value::Type::BINARY: {
-      m->WriteData(value->GetBuffer(), static_cast<int>(value->GetSize()));
+    case base::Value::TYPE_BINARY: {
+      const base::BinaryValue* binary =
+          static_cast<const base::BinaryValue*>(value);
+      m->WriteData(binary->GetBuffer(), static_cast<int>(binary->GetSize()));
       break;
     }
-    case base::Value::Type::DICTIONARY: {
+    case base::Value::TYPE_DICTIONARY: {
       const base::DictionaryValue* dict =
           static_cast<const base::DictionaryValue*>(value);
 
@@ -194,7 +196,7 @@ void WriteValue(base::Pickle* m, const base::Value* value, int recursion) {
       }
       break;
     }
-    case base::Value::Type::LIST: {
+    case base::Value::TYPE_LIST: {
       const base::ListValue* list = static_cast<const base::ListValue*>(value);
       WriteParam(m, static_cast<int>(list->GetSize()));
       for (const auto& entry : *list) {
@@ -252,7 +254,7 @@ bool ReadValue(const base::Pickle* m,
                base::Value** value,
                int recursion) {
   if (recursion > kMaxRecursionDepth) {
-    LOG(ERROR) << "Max recursion depth hit in ReadValue.";
+    LOG(WARNING) << "Max recursion depth hit in ReadValue.";
     return false;
   }
 
@@ -260,39 +262,39 @@ bool ReadValue(const base::Pickle* m,
   if (!ReadParam(m, iter, &type))
     return false;
 
-  switch (static_cast<base::Value::Type>(type)) {
-    case base::Value::Type::NONE:
+  switch (type) {
+    case base::Value::TYPE_NULL:
       *value = base::Value::CreateNullValue().release();
     break;
-    case base::Value::Type::BOOLEAN: {
+    case base::Value::TYPE_BOOLEAN: {
       bool val;
       if (!ReadParam(m, iter, &val))
         return false;
-      *value = new base::Value(val);
+      *value = new base::FundamentalValue(val);
       break;
     }
-    case base::Value::Type::INTEGER: {
+    case base::Value::TYPE_INTEGER: {
       int val;
       if (!ReadParam(m, iter, &val))
         return false;
-      *value = new base::Value(val);
+      *value = new base::FundamentalValue(val);
       break;
     }
-    case base::Value::Type::DOUBLE: {
+    case base::Value::TYPE_DOUBLE: {
       double val;
       if (!ReadParam(m, iter, &val))
         return false;
-      *value = new base::Value(val);
+      *value = new base::FundamentalValue(val);
       break;
     }
-    case base::Value::Type::STRING: {
+    case base::Value::TYPE_STRING: {
       std::string val;
       if (!ReadParam(m, iter, &val))
         return false;
-      *value = new base::Value(val);
+      *value = new base::StringValue(val);
       break;
     }
-    case base::Value::Type::BINARY: {
+    case base::Value::TYPE_BINARY: {
       const char* data;
       int length;
       if (!iter->ReadData(&data, &length))
@@ -302,14 +304,14 @@ bool ReadValue(const base::Pickle* m,
       *value = val.release();
       break;
     }
-    case base::Value::Type::DICTIONARY: {
+    case base::Value::TYPE_DICTIONARY: {
       std::unique_ptr<base::DictionaryValue> val(new base::DictionaryValue());
       if (!ReadDictionaryValue(m, iter, val.get(), recursion))
         return false;
       *value = val.release();
       break;
     }
-    case base::Value::Type::LIST: {
+    case base::Value::TYPE_LIST: {
       std::unique_ptr<base::ListValue> val(new base::ListValue());
       if (!ReadListValue(m, iter, val.get(), recursion))
         return false;
@@ -584,6 +586,28 @@ void ParamTraits<std::vector<bool> >::Log(const param_type& p, std::string* l) {
   }
 }
 
+void ParamTraits<BrokerableAttachment::AttachmentId>::Write(
+    base::Pickle* m,
+    const param_type& p) {
+  m->WriteBytes(p.nonce, BrokerableAttachment::kNonceSize);
+}
+
+bool ParamTraits<BrokerableAttachment::AttachmentId>::Read(
+    const base::Pickle* m,
+    base::PickleIterator* iter,
+    param_type* r) {
+  const char* data;
+  if (!iter->ReadBytes(&data, BrokerableAttachment::kNonceSize))
+    return false;
+  memcpy(r->nonce, data, BrokerableAttachment::kNonceSize);
+  return true;
+}
+
+void ParamTraits<BrokerableAttachment::AttachmentId>::Log(const param_type& p,
+                                                          std::string* l) {
+  l->append(base::HexEncode(p.nonce, BrokerableAttachment::kNonceSize));
+}
+
 void ParamTraits<base::DictionaryValue>::GetSize(base::PickleSizer* sizer,
                                                  const param_type& p) {
   GetValueSize(sizer, &p, 0);
@@ -598,8 +622,7 @@ bool ParamTraits<base::DictionaryValue>::Read(const base::Pickle* m,
                                               base::PickleIterator* iter,
                                               param_type* r) {
   int type;
-  if (!ReadParam(m, iter, &type) ||
-      type != static_cast<int>(base::Value::Type::DICTIONARY))
+  if (!ReadParam(m, iter, &type) || type != base::Value::TYPE_DICTIONARY)
     return false;
 
   return ReadDictionaryValue(m, iter, r, 0);
@@ -655,14 +678,8 @@ bool ParamTraits<base::FileDescriptor>::Read(const base::Pickle* m,
   if (!m->ReadAttachment(iter, &attachment))
     return false;
 
-  if (static_cast<MessageAttachment*>(attachment.get())->GetType() !=
-      MessageAttachment::Type::PLATFORM_FILE) {
-    return false;
-  }
-
   *r = base::FileDescriptor(
-      static_cast<internal::PlatformFileAttachment*>(attachment.get())
-          ->TakePlatformFile(),
+      static_cast<MessageAttachment*>(attachment.get())->TakePlatformFile(),
       true);
   return true;
 }
@@ -815,8 +832,7 @@ bool ParamTraits<base::ListValue>::Read(const base::Pickle* m,
                                         base::PickleIterator* iter,
                                         param_type* r) {
   int type;
-  if (!ReadParam(m, iter, &type) ||
-      type != static_cast<int>(base::Value::Type::LIST))
+  if (!ReadParam(m, iter, &type) || type != base::Value::TYPE_LIST)
     return false;
 
   return ReadListValue(m, iter, r, 0);
@@ -982,81 +998,47 @@ void ParamTraits<base::TimeTicks>::Log(const param_type& p, std::string* l) {
   ParamTraits<int64_t>::Log(p.ToInternalValue(), l);
 }
 
-// If base::UnguessableToken is no longer 128 bits, the IPC serialization logic
-// below should be updated.
-static_assert(sizeof(base::UnguessableToken) == 2 * sizeof(uint64_t),
-              "base::UnguessableToken should be of size 2 * sizeof(uint64_t).");
-
-void ParamTraits<base::UnguessableToken>::GetSize(base::PickleSizer* sizer,
-                                                  const param_type& p) {
-  sizer->AddBytes(2 * sizeof(uint64_t));
-}
-
-void ParamTraits<base::UnguessableToken>::Write(base::Pickle* m,
-                                                const param_type& p) {
-  DCHECK(!p.is_empty());
-
-  ParamTraits<uint64_t>::Write(m, p.GetHighForSerialization());
-  ParamTraits<uint64_t>::Write(m, p.GetLowForSerialization());
-}
-
-bool ParamTraits<base::UnguessableToken>::Read(const base::Pickle* m,
-                                               base::PickleIterator* iter,
-                                               param_type* r) {
-  uint64_t high, low;
-  if (!ParamTraits<uint64_t>::Read(m, iter, &high) ||
-      !ParamTraits<uint64_t>::Read(m, iter, &low))
-    return false;
-
-  // Receiving a zeroed UnguessableToken is a security issue.
-  if (high == 0 && low == 0)
-    return false;
-
-  *r = base::UnguessableToken::Deserialize(high, low);
-  return true;
-}
-
-void ParamTraits<base::UnguessableToken>::Log(const param_type& p,
-                                              std::string* l) {
-  l->append(p.ToString());
-}
-
 void ParamTraits<IPC::ChannelHandle>::GetSize(base::PickleSizer* sizer,
                                               const param_type& p) {
-#if defined(OS_NACL_SFI)
+  GetParamSize(sizer, p.name);
+#if defined(OS_POSIX)
   GetParamSize(sizer, p.socket);
-#else
-  GetParamSize(sizer, p.mojo_handle);
 #endif
+  GetParamSize(sizer, p.mojo_handle);
 }
 
 void ParamTraits<IPC::ChannelHandle>::Write(base::Pickle* m,
                                             const param_type& p) {
-#if defined(OS_NACL_SFI)
+#if defined(OS_WIN)
+  // On Windows marshalling pipe handle is not supported.
+  DCHECK(p.pipe.handle == NULL);
+#endif  // defined (OS_WIN)
+  WriteParam(m, p.name);
+#if defined(OS_POSIX)
   WriteParam(m, p.socket);
-#else
-  WriteParam(m, p.mojo_handle);
 #endif
+  WriteParam(m, p.mojo_handle);
 }
 
 bool ParamTraits<IPC::ChannelHandle>::Read(const base::Pickle* m,
                                            base::PickleIterator* iter,
                                            param_type* r) {
-#if defined(OS_NACL_SFI)
-  return ReadParam(m, iter, &r->socket);
-#else
-  return ReadParam(m, iter, &r->mojo_handle);
+  return ReadParam(m, iter, &r->name)
+#if defined(OS_POSIX)
+      && ReadParam(m, iter, &r->socket)
 #endif
+      && ReadParam(m, iter, &r->mojo_handle);
 }
 
 void ParamTraits<IPC::ChannelHandle>::Log(const param_type& p,
                                           std::string* l) {
-  l->append("ChannelHandle(");
-#if defined(OS_NACL_SFI)
+  l->append(base::StringPrintf("ChannelHandle(%s", p.name.c_str()));
+#if defined(OS_POSIX)
+  l->append(", ");
   ParamTraits<base::FileDescriptor>::Log(p.socket, l);
-#else
-  LogParam(p.mojo_handle, l);
 #endif
+  l->append(", ");
+  LogParam(p.mojo_handle, l);
   l->append(")");
 }
 

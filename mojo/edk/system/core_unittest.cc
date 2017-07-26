@@ -846,16 +846,14 @@ TEST_F(CoreTest, DataPipe) {
       MOJO_RESULT_FAILED_PRECONDITION,
       core()->Wait(ch, MOJO_HANDLE_SIGNAL_WRITABLE, 0, &hss));
   ASSERT_EQ(0u, hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
   hss = kFullMojoHandleSignalsState;
   ASSERT_EQ(
       MOJO_RESULT_DEADLINE_EXCEEDED,
       core()->Wait(ch, MOJO_HANDLE_SIGNAL_READABLE, 0, &hss));
   ASSERT_EQ(0u, hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
 
   // Write.
@@ -874,10 +872,8 @@ TEST_F(CoreTest, DataPipe) {
   hss = kEmptyMojoHandleSignalsState;
   ASSERT_EQ(MOJO_RESULT_OK, core()->Wait(ch, MOJO_HANDLE_SIGNAL_READABLE, 0,
                                          &hss));
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
-            hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfied_signals);
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
 
   // Peek one character.
@@ -998,9 +994,8 @@ TEST_F(CoreTest, DataPipe) {
   ASSERT_EQ(
       MOJO_RESULT_DEADLINE_EXCEEDED,
       core()->Wait(ch, MOJO_HANDLE_SIGNAL_READABLE, 0, &hss));
-  EXPECT_EQ(0u, hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(0u, hss.satisfied_signals);
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
 
   // TODO(vtl): More.
@@ -1086,10 +1081,8 @@ TEST_F(CoreTest, MessagePipeBasicLocalHandlePassing2) {
   ASSERT_EQ(MOJO_RESULT_OK,
             core()->Wait(ch_received, MOJO_HANDLE_SIGNAL_READABLE, 1000000000,
                          &hss));
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
-            hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfied_signals);
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
   num_bytes = kBufferSize;
   ASSERT_EQ(MOJO_RESULT_OK,
@@ -1140,10 +1133,8 @@ TEST_F(CoreTest, MessagePipeBasicLocalHandlePassing2) {
   ASSERT_EQ(MOJO_RESULT_OK,
             core()->Wait(ch_received, MOJO_HANDLE_SIGNAL_READABLE, 1000000000,
                          &hss));
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
-            hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfied_signals);
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
   num_bytes = kBufferSize;
   ASSERT_EQ(MOJO_RESULT_OK,
@@ -1196,10 +1187,8 @@ TEST_F(CoreTest, MessagePipeBasicLocalHandlePassing2) {
   hss = kEmptyMojoHandleSignalsState;
   ASSERT_EQ(MOJO_RESULT_OK, core()->Wait(ch, MOJO_HANDLE_SIGNAL_READABLE,
                                          1000000000, &hss));
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
-            hss.satisfied_signals);
-  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED |
-                MOJO_HANDLE_SIGNAL_NEW_DATA_READABLE,
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfied_signals);
+  ASSERT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             hss.satisfiable_signals);
 
   // Make sure that |ch| can't be sent if it's in a two-phase read.

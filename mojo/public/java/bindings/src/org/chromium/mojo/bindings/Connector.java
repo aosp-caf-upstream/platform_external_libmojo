@@ -4,13 +4,13 @@
 
 package org.chromium.mojo.bindings;
 
+import org.chromium.mojo.system.AsyncWaiter;
 import org.chromium.mojo.system.Core;
 import org.chromium.mojo.system.MessagePipeHandle;
 import org.chromium.mojo.system.MessagePipeHandle.ReadMessageResult;
 import org.chromium.mojo.system.MojoException;
 import org.chromium.mojo.system.MojoResult;
 import org.chromium.mojo.system.ResultAnd;
-import org.chromium.mojo.system.Watcher;
 
 import java.nio.ByteBuffer;
 
@@ -27,7 +27,7 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
     /**
      * The callback that is notified when the state of the owned handle changes.
      */
-    private final WatcherCallback mWatcherCallback = new WatcherCallback();
+    private final AsyncWaiterCallback mAsyncWaiterCallback = new AsyncWaiterCallback();
 
     /**
      * The owned message pipe.
@@ -35,14 +35,19 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
     private final MessagePipeHandle mMessagePipeHandle;
 
     /**
-     * A watcher which is notified when a new message is available on the owned message pipe.
+     * A waiter which is notified when a new message is available on the owned message pipe.
      */
-    private final Watcher mWatcher;
+    private final AsyncWaiter mAsyncWaiter;
 
     /**
      * The {@link MessageReceiver} to which received messages are sent.
      */
     private MessageReceiver mIncomingMessageReceiver;
+
+    /**
+     * The Cancellable for the current wait. Is |null| when not currently waiting for new messages.
+     */
+    private AsyncWaiter.Cancellable mCancellable;
 
     /**
      * The error handler to notify of errors.
@@ -54,16 +59,17 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
      * {@link AsyncWaiter} from the {@link Core} implementation of |messagePipeHandle|.
      */
     public Connector(MessagePipeHandle messagePipeHandle) {
-        this(messagePipeHandle, BindingsHelper.getWatcherForHandle(messagePipeHandle));
+        this(messagePipeHandle, BindingsHelper.getDefaultAsyncWaiterForHandle(messagePipeHandle));
     }
 
     /**
      * Create a new connector over a |messagePipeHandle| using the given {@link AsyncWaiter} to get
      * notified of changes on the handle.
      */
-    public Connector(MessagePipeHandle messagePipeHandle, Watcher watcher) {
+    public Connector(MessagePipeHandle messagePipeHandle, AsyncWaiter asyncWaiter) {
+        mCancellable = null;
         mMessagePipeHandle = messagePipeHandle;
-        mWatcher = watcher;
+        mAsyncWaiter = asyncWaiter;
     }
 
     /**
@@ -85,7 +91,8 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
      * Start listening for incoming messages.
      */
     public void start() {
-        mWatcher.start(mMessagePipeHandle, Core.HandleSignals.READABLE, mWatcherCallback);
+        assert mCancellable == null;
+        registerAsyncWaiterForRead();
     }
 
     /**
@@ -133,21 +140,32 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
         }
     }
 
-    private class WatcherCallback implements Watcher.Callback {
+    private class AsyncWaiterCallback implements AsyncWaiter.Callback {
+
         /**
-         * @see org.chromium.mojo.system.Watcher.Callback#onResult(int)
+         * @see org.chromium.mojo.system.AsyncWaiter.Callback#onResult(int)
          */
         @Override
         public void onResult(int result) {
-            Connector.this.onWatcherResult(result);
+            Connector.this.onAsyncWaiterResult(result);
+        }
+
+        /**
+         * @see org.chromium.mojo.system.AsyncWaiter.Callback#onError(MojoException)
+         */
+        @Override
+        public void onError(MojoException exception) {
+            mCancellable = null;
+            Connector.this.onError(exception);
         }
 
     }
 
     /**
-     * @see org.chromium.mojo.system.Watcher.Callback#onResult(int)
+     * @see org.chromium.mojo.system.AsyncWaiter.Callback#onResult(int)
      */
-    private void onWatcherResult(int result) {
+    private void onAsyncWaiterResult(int result) {
+        mCancellable = null;
         if (result == MojoResult.OK) {
             readOutstandingMessages();
         } else {
@@ -157,8 +175,22 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
 
     private void onError(MojoException exception) {
         close();
+        assert mCancellable == null;
         if (mErrorHandler != null) {
             mErrorHandler.onConnectionError(exception);
+        }
+    }
+
+    /**
+     * Register to be called back when a new message is available on the owned message pipe.
+     */
+    private void registerAsyncWaiterForRead() {
+        assert mCancellable == null;
+        if (mAsyncWaiter != null) {
+            mCancellable = mAsyncWaiter.asyncWait(mMessagePipeHandle, Core.HandleSignals.READABLE,
+                    Core.DEADLINE_INFINITE, mAsyncWaiterCallback);
+        } else {
+            onError(new MojoException(MojoResult.INVALID_ARGUMENT));
         }
     }
 
@@ -175,14 +207,18 @@ public class Connector implements MessageReceiver, HandleOwner<MessagePipeHandle
                 return;
             }
         } while (result.getValue());
-        if (result.getMojoResult() != MojoResult.SHOULD_WAIT) {
+        if (result.getMojoResult() == MojoResult.SHOULD_WAIT) {
+            registerAsyncWaiterForRead();
+        } else {
             onError(new MojoException(result.getMojoResult()));
         }
     }
 
     private void cancelIfActive() {
-        mWatcher.cancel();
-        mWatcher.destroy();
+        if (mCancellable != null) {
+            mCancellable.cancel();
+            mCancellable = null;
+        }
     }
 
     /**
