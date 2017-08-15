@@ -87,6 +87,7 @@ LOCAL_SRC_FILES := \
 	mojo/edk/embedder/platform_handle.cc \
 	mojo/edk/embedder/platform_handle_utils_posix.cc \
 	mojo/edk/embedder/platform_shared_buffer.cc \
+	mojo/edk/embedder/test_embedder.cc \
 	mojo/edk/system/awakable_list.cc \
 	mojo/edk/system/broker_host_posix.cc \
 	mojo/edk/system/broker_posix.cc \
