@@ -195,7 +195,13 @@ public interface Interface extends ConnectionErrorHandler, Closeable {
                             @Override
                             public void call(RunResponseMessageParams response) {
                                 mVersion = response.queryVersionResult.version;
-                                callback.call(mVersion);
+                                try {
+                                    callback.call(mVersion);
+                                } catch (RuntimeException e) {
+                                    // TODO(lhchavez): Remove this hack. See b/28986534 for details.
+                                    android.util.Log.wtf("org.chromium.mojo.bindings.Interface",
+                                            "Uncaught runtime exception", e);
+                                }
                             }
                         });
             }
