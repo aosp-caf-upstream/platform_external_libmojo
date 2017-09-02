@@ -154,6 +154,8 @@ LOCAL_SRC_FILES := \
 	mojo/public/cpp/bindings/lib/validation_context.cc \
 	mojo/public/cpp/bindings/lib/validation_errors.cc \
 	mojo/public/cpp/bindings/lib/validation_util.cc \
+	mojo/public/cpp/system/buffer.cc \
+	mojo/public/cpp/system/platform_handle.cc \
 	mojo/public/cpp/system/watcher.cc \
 
 LOCAL_CFLAGS := \
