@@ -159,6 +159,8 @@ LOCAL_SRC_FILES := \
 	mojo/public/cpp/system/watcher.cc \
 
 LOCAL_CFLAGS := \
+	-Wall \
+	-Werror \
 	-Wno-unused-parameter \
 	-Wno-missing-field-initializers \
 	-DMOJO_EDK_LEGACY_PROTOCOL \
