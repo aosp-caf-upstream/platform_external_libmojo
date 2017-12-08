@@ -16,6 +16,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_MOJOM_FILES := \
 	mojo/common/common_custom_types.mojom \
 	mojo/common/string16.mojom \
+	mojo/common/time.mojom \
 	mojo/public/interfaces/bindings/interface_control_messages.mojom \
 	mojo/public/interfaces/bindings/pipe_control_messages.mojom \
 
