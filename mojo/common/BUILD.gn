@@ -17,6 +17,7 @@ mojom("common_custom_types") {
   sources = [
     "common_custom_types.mojom",
     "string16.mojom",
+    "time.mojom",
   ]
 }
 
