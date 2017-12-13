@@ -11,33 +11,40 @@
 #include "base/android/build_info.h"
 #include "base/android/jni_string.h"
 #include "base/android/jni_utils.h"
+#include "base/debug/debugging_flags.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/threading/thread_local.h"
 
 namespace {
 using base::android::GetClass;
 using base::android::MethodID;
 using base::android::ScopedJavaLocalRef;
 
-bool g_disable_manual_jni_registration = false;
+base::android::JniRegistrationType g_jni_registration_type =
+    base::android::ALL_JNI_REGISTRATION;
 
 JavaVM* g_jvm = NULL;
-base::LazyInstance<base::android::ScopedJavaGlobalRef<jobject> >::Leaky
+base::LazyInstance<base::android::ScopedJavaGlobalRef<jobject>>::Leaky
     g_class_loader = LAZY_INSTANCE_INITIALIZER;
 jmethodID g_class_loader_load_class_method_id = 0;
+
+#if BUILDFLAG(ENABLE_PROFILING) && HAVE_TRACE_STACK_FRAME_POINTERS
+base::LazyInstance<base::ThreadLocalPointer<void>>::Leaky
+    g_stack_frame_pointer = LAZY_INSTANCE_INITIALIZER;
+#endif
 
 }  // namespace
 
 namespace base {
 namespace android {
 
-bool IsManualJniRegistrationDisabled() {
-  return g_disable_manual_jni_registration;
+JniRegistrationType GetJniRegistrationType() {
+  return g_jni_registration_type;
 }
 
-void DisableManualJniRegistration() {
-  DCHECK(!g_disable_manual_jni_registration);
-  g_disable_manual_jni_registration = true;
+void SetJniRegistrationType(JniRegistrationType jni_registration_type) {
+  g_jni_registration_type = jni_registration_type;
 }
 
 JNIEnv* AttachCurrentThread() {
@@ -233,16 +240,7 @@ void CheckException(JNIEnv* env) {
   }
 
   // Now, feel good about it and die.
-  // TODO(lhchavez): Remove this hack. See b/28814913 for details.
-  // We're using BuildInfo's java_exception_info() instead of storing the
-  // exception info a few lines above to avoid extra copies. It will be
-  // truncated to 1024 bytes anyways.
-  const char* exception_string =
-      base::android::BuildInfo::GetInstance()->java_exception_info();
-  if (exception_string)
-    LOG(FATAL) << exception_string;
-  else
-    LOG(FATAL) << "Unhandled exception";
+  LOG(FATAL) << "Please include Java exception stack in crash report";
 }
 
 std::string GetJavaExceptionInfo(JNIEnv* env, jthrowable java_throwable) {
@@ -291,6 +289,22 @@ std::string GetJavaExceptionInfo(JNIEnv* env, jthrowable java_throwable) {
   return ConvertJavaStringToUTF8(exception_string);
 }
 
+#if BUILDFLAG(ENABLE_PROFILING) && HAVE_TRACE_STACK_FRAME_POINTERS
+
+JNIStackFrameSaver::JNIStackFrameSaver(void* current_fp) {
+  previous_fp_ = g_stack_frame_pointer.Pointer()->Get();
+  g_stack_frame_pointer.Pointer()->Set(current_fp);
+}
+
+JNIStackFrameSaver::~JNIStackFrameSaver() {
+  g_stack_frame_pointer.Pointer()->Set(previous_fp_);
+}
+
+void* JNIStackFrameSaver::SavedFrame() {
+  return g_stack_frame_pointer.Pointer()->Get();
+}
+
+#endif  // ENABLE_PROFILING && HAVE_TRACE_STACK_FRAME_POINTERS
 
 }  // namespace android
 }  // namespace base
