@@ -23,6 +23,8 @@ LOCAL_MOJOM_FILES := \
 	mojo/common/version.mojom \
 	mojo/public/interfaces/bindings/interface_control_messages.mojom \
 	mojo/public/interfaces/bindings/pipe_control_messages.mojom \
+	ui/gfx/geometry/mojo/geometry.mojom \
+	ui/gfx/range/mojo/range.mojom \
 
 # This file was copied from out/Release in a Chrome checkout.
 # TODO(lhchavez): Generate this file instead of hardcoding it.
@@ -72,6 +74,9 @@ LOCAL_SRC_FILES := \
 	base/trace_event/java_heap_dump_provider_android.cc \
 	base/trace_event/trace_event_android.cc \
 	base/unguessable_token.cc \
+	device/bluetooth/bluetooth_advertisement.cc \
+	device/bluetooth/bluetooth_uuid.cc \
+	device/bluetooth/bluez/bluetooth_service_attribute_value_bluez.cc \
 	ipc/ipc_message.cc \
 	ipc/ipc_message_attachment.cc \
 	ipc/ipc_message_attachment_set.cc \
@@ -158,6 +163,20 @@ LOCAL_SRC_FILES := \
 	mojo/public/cpp/system/buffer.cc \
 	mojo/public/cpp/system/platform_handle.cc \
 	mojo/public/cpp/system/watcher.cc \
+	ui/gfx/geometry/insets.cc \
+	ui/gfx/geometry/insets_f.cc \
+	ui/gfx/geometry/point.cc \
+	ui/gfx/geometry/point_conversions.cc \
+	ui/gfx/geometry/point_f.cc \
+	ui/gfx/geometry/rect.cc \
+	ui/gfx/geometry/rect_f.cc \
+	ui/gfx/geometry/size.cc \
+	ui/gfx/geometry/size_conversions.cc \
+	ui/gfx/geometry/size_f.cc \
+	ui/gfx/geometry/vector2d.cc \
+	ui/gfx/geometry/vector2d_f.cc \
+	ui/gfx/range/range.cc \
+	ui/gfx/range/range_f.cc \
 
 LOCAL_CFLAGS := \
 	-Wall \
