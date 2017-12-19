@@ -28,8 +28,10 @@ mojom_bindings_generator_flags := $$(LOCAL_MOJOM_BINDINGS_GENERATOR_FLAGS)
 # TODO(lhchavez): Generate these files instead of expecting them to be there.
 mojom_type_mappings :=
 ifneq ($$(LOCAL_MOJOM_TYPE_MAPPINGS),)
-	mojom_type_mappings := $$(local_path)/$$(LOCAL_MOJOM_TYPE_MAPPINGS)
-	mojom_bindings_generator_flags += --typemap $$(abspath $$(mojom_type_mappings))
+	mojom_type_mappings := \
+		$$(foreach mapping,$$(LOCAL_MOJOM_TYPE_MAPPINGS),$$(local_path)/$$(mapping))
+	mojom_bindings_generator_flags += \
+		$$(foreach path,$$(mojom_type_mappings),--typemap $$(abspath $$(path)))
 endif
 
 
