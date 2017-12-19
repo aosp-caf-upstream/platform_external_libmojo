@@ -240,7 +240,16 @@ void CheckException(JNIEnv* env) {
   }
 
   // Now, feel good about it and die.
-  LOG(FATAL) << "Please include Java exception stack in crash report";
+  // TODO(lhchavez): Remove this hack. See b/28814913 for details.
+  // We're using BuildInfo's java_exception_info() instead of storing the
+  // exception info a few lines above to avoid extra copies. It will be
+  // truncated to 1024 bytes anyways.
+  const char* exception_string =
+      base::android::BuildInfo::GetInstance()->java_exception_info();
+  if (exception_string)
+    LOG(FATAL) << exception_string;
+  else
+    LOG(FATAL) << "Unhandled exception";
 }
 
 std::string GetJavaExceptionInfo(JNIEnv* env, jthrowable java_throwable) {

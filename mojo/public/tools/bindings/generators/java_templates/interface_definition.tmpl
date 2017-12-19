@@ -113,7 +113,12 @@ try {
 {%       else %}
             {{request_struct|name}}.deserialize(messageWithHeader.getPayload());
 {%       endif %}
-            getImpl().{{method|name}}({{run_callback('data', method.parameters)}}{% if with_response %}{% if method.parameters %}, {% endif %}new {{response_struct|name}}ProxyToResponder(getCore(), receiver, header.getRequestId()){% endif %});
+            try {
+                getImpl().{{method|name}}({{run_callback('data', method.parameters)}}{% if with_response %}{% if method.parameters %}, {% endif %}new {{response_struct|name}}ProxyToResponder(getCore(), receiver, header.getRequestId()){% endif %});
+            } catch (RuntimeException e) {
+                // TODO(lhchavez): Remove this hack. See b/28814913 for details.
+                android.util.Log.wtf("{{namespace}}.{{interface.name}}", "Uncaught runtime exception", e);
+            }
             return true;
         }
 {%     endif %}
