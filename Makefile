@@ -173,9 +173,12 @@ install_lib: all
 	sed -e "s:@LIB@:$(LIB):g" -e "s:@BSLOT@:$(BASE_VER):g" $(S)/libmojo.pc.in > $(S)/libmojo-$(BASE_VER).pc
 
 install_tool:
-	install -d $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/
+	install -d $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/public/tools/bindings/
+	install -d $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/build/
 	cp -r --preserve=mode $(SRC)/third_party $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/
 	cp -r --preserve=mode $(SRC)/mojo/public/tools/bindings/* \
-		$(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/
+		$(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/public/tools/bindings/
+	cp -r --preserve=mode $(SRC)/build/* \
+		$(DESTDIR)/usr/src/libmojo-$(BASE_VER)/build/
 
 install: install_lib install_tool
