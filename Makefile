@@ -82,6 +82,7 @@ CXX_OBJECTS := \
 	mojo/public/cpp/bindings/lib/array_internal.o \
 	mojo/public/cpp/bindings/lib/associated_group.o \
 	mojo/public/cpp/bindings/lib/associated_group_controller.o \
+	mojo/public/cpp/bindings/lib/binding_state.o \
 	mojo/public/cpp/bindings/lib/connector.o \
 	mojo/public/cpp/bindings/lib/control_message_handler.o \
 	mojo/public/cpp/bindings/lib/control_message_proxy.o \
@@ -100,6 +101,7 @@ CXX_OBJECTS := \
 	mojo/public/cpp/bindings/lib/pipe_control_message_proxy.o \
 	mojo/public/cpp/bindings/lib/scoped_interface_endpoint_handle.o \
 	mojo/public/cpp/bindings/lib/serialization_context.o \
+	mojo/public/cpp/bindings/lib/sync_call_restrictions.o \
 	mojo/public/cpp/bindings/lib/sync_handle_registry.o \
 	mojo/public/cpp/bindings/lib/sync_handle_watcher.o \
 	mojo/public/cpp/bindings/lib/validation_context.o \
@@ -173,9 +175,12 @@ install_lib: all
 	sed -e "s:@LIB@:$(LIB):g" -e "s:@BSLOT@:$(BASE_VER):g" $(S)/libmojo.pc.in > $(S)/libmojo-$(BASE_VER).pc
 
 install_tool:
-	install -d $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/
+	install -d $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/public/tools/bindings/
+	install -d $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/build/
 	cp -r --preserve=mode $(SRC)/third_party $(DESTDIR)/usr/src/libmojo-$(BASE_VER)/
 	cp -r --preserve=mode $(SRC)/mojo/public/tools/bindings/* \
-		$(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/
+		$(DESTDIR)/usr/src/libmojo-$(BASE_VER)/mojo/public/tools/bindings/
+	cp -r --preserve=mode $(SRC)/build/* \
+		$(DESTDIR)/usr/src/libmojo-$(BASE_VER)/build/
 
 install: install_lib install_tool
