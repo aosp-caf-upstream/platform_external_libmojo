@@ -14,10 +14,17 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_MOJOM_FILES := \
-	mojo/common/common_custom_types.mojom \
+	ipc/ipc.mojom \
+	mojo/common/file.mojom \
 	mojo/common/string16.mojom \
+	mojo/common/text_direction.mojom \
+	mojo/common/time.mojom \
+	mojo/common/unguessable_token.mojom \
+	mojo/common/version.mojom \
 	mojo/public/interfaces/bindings/interface_control_messages.mojom \
 	mojo/public/interfaces/bindings/pipe_control_messages.mojom \
+	ui/gfx/geometry/mojo/geometry.mojom \
+	ui/gfx/range/mojo/range.mojom \
 
 # This file was copied from out/Release in a Chrome checkout.
 # TODO(lhchavez): Generate this file instead of hardcoding it.
@@ -43,6 +50,7 @@ LOCAL_JAVA_JNI_FILES := \
 	jni/java/lang/Runtime.class \
 	mojo/android/system/src/org/chromium/mojo/system/impl/BaseRunLoop.java \
 	mojo/android/system/src/org/chromium/mojo/system/impl/CoreImpl.java \
+	mojo/android/system/src/org/chromium/mojo/system/impl/WatcherImpl.java \
 
 # Generate all JNI header files.
 include $(LOCAL_PATH)/build_generated_jni.mk
@@ -63,10 +71,12 @@ LOCAL_SRC_FILES := \
 	base/files/file_util_android.cc \
 	base/message_loop/message_pump_android.cc \
 	base/path_service.cc \
-	base/threading/thread_local_android.cc \
 	base/trace_event/java_heap_dump_provider_android.cc \
 	base/trace_event/trace_event_android.cc \
-	ipc/brokerable_attachment.cc \
+	base/unguessable_token.cc \
+	device/bluetooth/bluetooth_advertisement.cc \
+	device/bluetooth/bluetooth_uuid.cc \
+	device/bluetooth/bluez/bluetooth_service_attribute_value_bluez.cc \
 	ipc/ipc_message.cc \
 	ipc/ipc_message_attachment.cc \
 	ipc/ipc_message_attachment_set.cc \
@@ -75,11 +85,12 @@ LOCAL_SRC_FILES := \
 	ipc/ipc_mojo_message_helper.cc \
 	ipc/ipc_mojo_param_traits.cc \
 	ipc/ipc_platform_file_attachment_posix.cc \
-	ipc/placeholder_brokerable_attachment.cc \
 	mojo/android/system/base_run_loop.cc \
 	mojo/android/system/core_impl.cc \
-	mojo/edk/embedder/embedder.cc \
+	mojo/android/system/watcher_impl.cc \
 	mojo/common/common_custom_types_struct_traits.cc \
+	mojo/edk/embedder/connection_params.cc \
+	mojo/edk/embedder/embedder.cc \
 	mojo/edk/embedder/entrypoints.cc \
 	mojo/edk/embedder/platform_channel_pair.cc \
 	mojo/edk/embedder/platform_channel_pair_posix.cc \
@@ -87,9 +98,10 @@ LOCAL_SRC_FILES := \
 	mojo/edk/embedder/platform_handle.cc \
 	mojo/edk/embedder/platform_handle_utils_posix.cc \
 	mojo/edk/embedder/platform_shared_buffer.cc \
+	mojo/edk/embedder/pending_process_connection.cc \
 	mojo/edk/embedder/test_embedder.cc \
 	mojo/edk/system/awakable_list.cc \
-	mojo/edk/system/broker_host_posix.cc \
+	mojo/edk/system/broker_host.cc \
 	mojo/edk/system/broker_posix.cc \
 	mojo/edk/system/channel.cc \
 	mojo/edk/system/channel_posix.cc \
@@ -120,14 +132,11 @@ LOCAL_SRC_FILES := \
 	mojo/edk/system/waiter.cc \
 	mojo/edk/system/watcher.cc \
 	mojo/edk/system/watcher_set.cc \
-	mojo/message_pump/handle_watcher.cc \
-	mojo/message_pump/message_pump_mojo.cc \
-	mojo/message_pump/time_helper.cc \
 	mojo/public/c/system/thunks.cc \
 	mojo/public/cpp/bindings/lib/array_internal.cc \
 	mojo/public/cpp/bindings/lib/associated_group.cc \
 	mojo/public/cpp/bindings/lib/associated_group_controller.cc \
-	mojo/public/cpp/bindings/lib/bindings_internal.cc \
+	mojo/public/cpp/bindings/lib/binding_state.cc \
 	mojo/public/cpp/bindings/lib/connector.cc \
 	mojo/public/cpp/bindings/lib/control_message_handler.cc \
 	mojo/public/cpp/bindings/lib/control_message_proxy.cc \
@@ -137,16 +146,13 @@ LOCAL_SRC_FILES := \
 	mojo/public/cpp/bindings/lib/message.cc \
 	mojo/public/cpp/bindings/lib/message_buffer.cc \
 	mojo/public/cpp/bindings/lib/message_builder.cc \
-	mojo/public/cpp/bindings/lib/message_filter.cc \
 	mojo/public/cpp/bindings/lib/message_header_validator.cc \
 	mojo/public/cpp/bindings/lib/multiplex_router.cc \
 	mojo/public/cpp/bindings/lib/native_struct.cc \
 	mojo/public/cpp/bindings/lib/native_struct_data.cc \
 	mojo/public/cpp/bindings/lib/native_struct_serialization.cc \
-	mojo/public/cpp/bindings/lib/no_interface.cc \
 	mojo/public/cpp/bindings/lib/pipe_control_message_handler.cc \
 	mojo/public/cpp/bindings/lib/pipe_control_message_proxy.cc \
-	mojo/public/cpp/bindings/lib/router.cc \
 	mojo/public/cpp/bindings/lib/scoped_interface_endpoint_handle.cc \
 	mojo/public/cpp/bindings/lib/serialization_context.cc \
 	mojo/public/cpp/bindings/lib/sync_handle_registry.cc \
@@ -157,6 +163,20 @@ LOCAL_SRC_FILES := \
 	mojo/public/cpp/system/buffer.cc \
 	mojo/public/cpp/system/platform_handle.cc \
 	mojo/public/cpp/system/watcher.cc \
+	ui/gfx/geometry/insets.cc \
+	ui/gfx/geometry/insets_f.cc \
+	ui/gfx/geometry/point.cc \
+	ui/gfx/geometry/point_conversions.cc \
+	ui/gfx/geometry/point_f.cc \
+	ui/gfx/geometry/rect.cc \
+	ui/gfx/geometry/rect_f.cc \
+	ui/gfx/geometry/size.cc \
+	ui/gfx/geometry/size_conversions.cc \
+	ui/gfx/geometry/size_f.cc \
+	ui/gfx/geometry/vector2d.cc \
+	ui/gfx/geometry/vector2d_f.cc \
+	ui/gfx/range/range.cc \
+	ui/gfx/range/range_f.cc \
 
 LOCAL_CFLAGS := \
 	-Wall \
@@ -201,6 +221,7 @@ LOCAL_SRC_FILES := \
 	base/android/java/src/org/chromium/base/BuildInfo.java \
 	base/android/java/src/org/chromium/base/ContextUtils.java \
 	base/android/java/src/org/chromium/base/PackageUtils.java \
+	base/android/java/src/org/chromium/base/Log.java \
 	base/android/java/src/org/chromium/base/VisibleForTesting.java \
 	$(call all-java-files-under, mojo/android/system/src) \
 	$(call all-java-files-under, mojo/public/java/system/src) \
