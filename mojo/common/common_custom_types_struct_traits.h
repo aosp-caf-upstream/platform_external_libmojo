@@ -63,19 +63,6 @@ struct StructTraits<common::mojom::UnguessableTokenDataView,
 };
 
 template <>
-struct StructTraits<common::mojom::TimeDeltaDataView, base::TimeDelta> {
-  static int64_t microseconds(const base::TimeDelta& delta) {
-    return delta.InMicroseconds();
-  }
-
-  static bool Read(common::mojom::TimeDeltaDataView data,
-                   base::TimeDelta* delta) {
-    *delta = base::TimeDelta::FromMicroseconds(data.microseconds());
-    return true;
-  }
-};
-
-template <>
 struct StructTraits<common::mojom::FileDataView, base::File> {
   static bool IsNull(const base::File& file) { return !file.IsValid(); }
 
