@@ -27,6 +27,7 @@ files=()
 mojom_bindings_generator=""
 package=""
 output_dir=""
+generators=""
 
 # Given a path to directory or file, return the absolute path.
 get_abs_path() {
@@ -65,6 +66,9 @@ for arg in "$@"; do
       bytecode_path="${arg#'--bytecode_path='}"
       bytecode_path="$(get_abs_path ${bytecode_path})"
       ;;
+    --generators=*)
+      generators="${arg#'--generators='}"
+      ;;
     --*)
       args=("${args[@]}" "${arg}")
       ;;
@@ -78,9 +82,23 @@ cd "${package}"
 "${mojom_bindings_generator}" precompile -o "${output_dir}"
 
 for file in "${files[@]}"; do
+  # Java source generations depends on zipfile that assumes the output directory
+  # already exists. So, we need to create the directory beforehand.
+  rel_path="${file#`pwd`/}"
+  rel_dir="${rel_path%/*}"
+
+  mkdir -p "${output_dir}/${rel_dir}"
+
   "${mojom_bindings_generator}" generate -o "${output_dir}" "${args[@]}" \
-      --typemap="${typemap}" --bytecode_path="${bytecode_path}" "${file}"
-  "${mojom_bindings_generator}" generate -o "${output_dir}" \
-      --generate_non_variant_code "${args[@]}" --typemap="${typemap}" \
-      --bytecode_path="${bytecode_path}" "${file}"
+      --typemap="${typemap}" --bytecode_path="${bytecode_path}" \
+      --generators=${generators} "${file}"
+  if [[ "${generators}" =~ .*c++.* ]] ; then
+    "${mojom_bindings_generator}" generate -o "${output_dir}" \
+        --generate_non_variant_code "${args[@]}" --typemap="${typemap}" \
+        --bytecode_path="${bytecode_path}" --generators=${generators} \
+        "${file}"
+  fi
+  if [[ "${generators}" =~ .*java.* ]] ; then
+    unzip -qo -d "${output_dir}"/src "${output_dir}/${rel_path}".srcjar
+  fi
 done
