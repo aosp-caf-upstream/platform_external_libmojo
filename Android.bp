@@ -222,9 +222,181 @@ genrule {
     ],
 }
 
-// TODO(risan): Change the name to libmojo once Android.mk is removed.
+// TODO(risan): Remove this.
 cc_library_shared {
     name: "libmojo_bp",
+
+    generated_headers: [
+        "libmojo_jni_headers",
+        "libmojo_mojom_headers",
+    ],
+
+    generated_sources: [
+        "libmojo_mojom_srcs",
+    ],
+
+    export_generated_headers: [
+        "libmojo_jni_headers",
+        "libmojo_mojom_headers",
+    ],
+
+    srcs: [
+        "base/android/build_info.cc",
+        "base/android/content_uri_utils.cc",
+        "base/android/context_utils.cc",
+        "base/android/java_runtime.cc",
+        "base/android/jni_android.cc",
+        "base/android/jni_string.cc",
+        "base/android/path_utils.cc",
+        "base/android/scoped_java_ref.cc",
+        "base/base_paths.cc",
+        "base/base_paths_android.cc",
+        "base/debug/proc_maps_linux.cc",
+        "base/debug/stack_trace_android.cc",
+        "base/files/file_util_android.cc",
+        "base/message_loop/message_pump_android.cc",
+        "base/path_service.cc",
+        "base/trace_event/java_heap_dump_provider_android.cc",
+        "base/trace_event/trace_event_android.cc",
+        "base/unguessable_token.cc",
+        "device/bluetooth/bluetooth_advertisement.cc",
+        "device/bluetooth/bluetooth_uuid.cc",
+        "device/bluetooth/bluez/bluetooth_service_attribute_value_bluez.cc",
+        "ipc/ipc_message.cc",
+        "ipc/ipc_message_attachment.cc",
+        "ipc/ipc_message_attachment_set.cc",
+        "ipc/ipc_message_utils.cc",
+        "ipc/ipc_mojo_handle_attachment.cc",
+        "ipc/ipc_mojo_message_helper.cc",
+        "ipc/ipc_mojo_param_traits.cc",
+        "ipc/ipc_platform_file_attachment_posix.cc",
+        "mojo/android/system/base_run_loop.cc",
+        "mojo/android/system/core_impl.cc",
+        "mojo/android/system/watcher_impl.cc",
+        "mojo/common/common_custom_types_struct_traits.cc",
+        "mojo/edk/embedder/connection_params.cc",
+        "mojo/edk/embedder/embedder.cc",
+        "mojo/edk/embedder/entrypoints.cc",
+        "mojo/edk/embedder/platform_channel_pair.cc",
+        "mojo/edk/embedder/platform_channel_pair_posix.cc",
+        "mojo/edk/embedder/platform_channel_utils_posix.cc",
+        "mojo/edk/embedder/platform_handle.cc",
+        "mojo/edk/embedder/platform_handle_utils_posix.cc",
+        "mojo/edk/embedder/platform_shared_buffer.cc",
+        "mojo/edk/embedder/pending_process_connection.cc",
+        "mojo/edk/embedder/test_embedder.cc",
+        "mojo/edk/system/awakable_list.cc",
+        "mojo/edk/system/broker_host.cc",
+        "mojo/edk/system/broker_posix.cc",
+        "mojo/edk/system/channel.cc",
+        "mojo/edk/system/channel_posix.cc",
+        "mojo/edk/system/configuration.cc",
+        "mojo/edk/system/core.cc",
+        "mojo/edk/system/data_pipe_consumer_dispatcher.cc",
+        "mojo/edk/system/data_pipe_control_message.cc",
+        "mojo/edk/system/data_pipe_producer_dispatcher.cc",
+        "mojo/edk/system/dispatcher.cc",
+        "mojo/edk/system/handle_table.cc",
+        "mojo/edk/system/mapping_table.cc",
+        "mojo/edk/system/message_for_transit.cc",
+        "mojo/edk/system/message_pipe_dispatcher.cc",
+        "mojo/edk/system/node_channel.cc",
+        "mojo/edk/system/node_controller.cc",
+        "mojo/edk/system/platform_handle_dispatcher.cc",
+        "mojo/edk/system/ports/event.cc",
+        "mojo/edk/system/ports/message.cc",
+        "mojo/edk/system/ports/message_queue.cc",
+        "mojo/edk/system/ports/name.cc",
+        "mojo/edk/system/ports/node.cc",
+        "mojo/edk/system/ports/port.cc",
+        "mojo/edk/system/ports/port_ref.cc",
+        "mojo/edk/system/ports_message.cc",
+        "mojo/edk/system/request_context.cc",
+        "mojo/edk/system/shared_buffer_dispatcher.cc",
+        "mojo/edk/system/wait_set_dispatcher.cc",
+        "mojo/edk/system/waiter.cc",
+        "mojo/edk/system/watcher.cc",
+        "mojo/edk/system/watcher_set.cc",
+        "mojo/public/c/system/thunks.cc",
+        "mojo/public/cpp/bindings/lib/array_internal.cc",
+        "mojo/public/cpp/bindings/lib/associated_group.cc",
+        "mojo/public/cpp/bindings/lib/associated_group_controller.cc",
+        "mojo/public/cpp/bindings/lib/binding_state.cc",
+        "mojo/public/cpp/bindings/lib/connector.cc",
+        "mojo/public/cpp/bindings/lib/control_message_handler.cc",
+        "mojo/public/cpp/bindings/lib/control_message_proxy.cc",
+        "mojo/public/cpp/bindings/lib/filter_chain.cc",
+        "mojo/public/cpp/bindings/lib/fixed_buffer.cc",
+        "mojo/public/cpp/bindings/lib/interface_endpoint_client.cc",
+        "mojo/public/cpp/bindings/lib/message.cc",
+        "mojo/public/cpp/bindings/lib/message_buffer.cc",
+        "mojo/public/cpp/bindings/lib/message_builder.cc",
+        "mojo/public/cpp/bindings/lib/message_header_validator.cc",
+        "mojo/public/cpp/bindings/lib/multiplex_router.cc",
+        "mojo/public/cpp/bindings/lib/native_struct.cc",
+        "mojo/public/cpp/bindings/lib/native_struct_data.cc",
+        "mojo/public/cpp/bindings/lib/native_struct_serialization.cc",
+        "mojo/public/cpp/bindings/lib/pipe_control_message_handler.cc",
+        "mojo/public/cpp/bindings/lib/pipe_control_message_proxy.cc",
+        "mojo/public/cpp/bindings/lib/scoped_interface_endpoint_handle.cc",
+        "mojo/public/cpp/bindings/lib/serialization_context.cc",
+        "mojo/public/cpp/bindings/lib/sync_handle_registry.cc",
+        "mojo/public/cpp/bindings/lib/sync_handle_watcher.cc",
+        "mojo/public/cpp/bindings/lib/validation_context.cc",
+        "mojo/public/cpp/bindings/lib/validation_errors.cc",
+        "mojo/public/cpp/bindings/lib/validation_util.cc",
+        "mojo/public/cpp/system/buffer.cc",
+        "mojo/public/cpp/system/platform_handle.cc",
+        "mojo/public/cpp/system/watcher.cc",
+        "ui/gfx/geometry/insets.cc",
+        "ui/gfx/geometry/insets_f.cc",
+        "ui/gfx/geometry/point.cc",
+        "ui/gfx/geometry/point_conversions.cc",
+        "ui/gfx/geometry/point_f.cc",
+        "ui/gfx/geometry/rect.cc",
+        "ui/gfx/geometry/rect_f.cc",
+        "ui/gfx/geometry/size.cc",
+        "ui/gfx/geometry/size_conversions.cc",
+        "ui/gfx/geometry/size_f.cc",
+        "ui/gfx/geometry/vector2d.cc",
+        "ui/gfx/geometry/vector2d_f.cc",
+        "ui/gfx/range/range.cc",
+        "ui/gfx/range/range_f.cc",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-DMOJO_EDK_LEGACY_PROTOCOL",
+    ],
+
+    // We use OS_POSIX since we need to communicate with Chrome.
+    // We also pass NO_ASHMEM to make base::SharedMemory avoid using it and prefer
+    // the POSIX versions.
+    cppflags: [
+        "-Wno-sign-promo",
+        "-Wno-non-virtual-dtor",
+        "-Wno-ignored-qualifiers",
+        "-Wno-extra",
+        "-DOS_POSIX",
+        "-DNO_ASHMEM",
+        "-DNO_TCMALLOC",
+    ],
+
+    shared_libs: [
+        "libevent",
+        "liblog",
+        "libchrome",
+        "libchrome-crypto",
+    ],
+
+    export_include_dirs: ["."],
+}
+
+cc_library_shared {
+    name: "libmojo",
 
     generated_headers: [
         "libmojo_jni_headers",
@@ -468,9 +640,26 @@ genrule {
     ],
 }
 
-// TODO(risan): Rename this after Android.mk is removed.
+// TODO(risan): Remove this.
 java_library {
     name: "android.mojo_bp",
+
+    srcs: [
+        ":libmojo_mojom_java_srcs",
+        "base/android/java/src/org/chromium/base/BuildInfo.java",
+        "base/android/java/src/org/chromium/base/ContextUtils.java",
+        "base/android/java/src/org/chromium/base/Log.java",
+        "base/android/java/src/org/chromium/base/PackageUtils.java",
+        "base/android/java/src/org/chromium/base/VisibleForTesting.java",
+        "mojo/android/system/src/**/*.java",
+        "mojo/public/java/system/src/**/*.java",
+        "mojo/public/java/bindings/src/**/*.java",
+        "base/android/java/src/org/chromium/base/annotations/**/*.java",
+    ],
+}
+
+java_library {
+    name: "android.mojo",
 
     srcs: [
         ":libmojo_mojom_java_srcs",
