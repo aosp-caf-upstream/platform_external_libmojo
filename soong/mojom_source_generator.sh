@@ -61,6 +61,7 @@ for arg in "$@"; do
     --typemap=*)
       typemap="${arg#'--typemap='}"
       typemap="$(get_abs_path ${typemap})"
+      args=("${args[@]}" "--typemap=${typemap}")
       ;;
     --bytecode_path=*)
       bytecode_path="${arg#'--bytecode_path='}"
@@ -90,11 +91,11 @@ for file in "${files[@]}"; do
   mkdir -p "${output_dir}/${rel_dir}"
 
   "${mojom_bindings_generator}" generate -o "${output_dir}" "${args[@]}" \
-      --typemap="${typemap}" --bytecode_path="${bytecode_path}" \
+      --bytecode_path="${bytecode_path}" \
       --generators=${generators} "${file}"
   if [[ "${generators}" =~ .*c\+\+.* ]] ; then
     "${mojom_bindings_generator}" generate -o "${output_dir}" \
-        --generate_non_variant_code "${args[@]}" --typemap="${typemap}" \
+        --generate_non_variant_code "${args[@]}" \
         --bytecode_path="${bytecode_path}" --generators=${generators} \
         "${file}"
   fi
