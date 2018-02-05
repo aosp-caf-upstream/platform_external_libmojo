@@ -28,6 +28,7 @@ mojom_bindings_generator=""
 package=""
 output_dir=""
 generators=""
+private_mojo_root="$(pwd)/external/libmojo"
 
 # Given a path to directory or file, return the absolute path.
 get_abs_path() {
@@ -90,12 +91,18 @@ for file in "${files[@]}"; do
 
   mkdir -p "${output_dir}/${rel_dir}"
 
+  # The calls to mojom_bindings_generator below uses -I option to include the
+  # libmojo root directory as part of searchable directory for imports. With
+  # this, we can have a mojo file located in some arbitrary directories that
+  # imports a mojo file under external/libmojo.
   "${mojom_bindings_generator}" generate -o "${output_dir}" "${args[@]}" \
       --bytecode_path="${bytecode_path}" \
+      -I "${private_mojo_root}:${private_mojo_root}" \
       --generators=${generators} "${file}"
   if [[ "${generators}" =~ .*c\+\+.* ]] ; then
     "${mojom_bindings_generator}" generate -o "${output_dir}" \
         --generate_non_variant_code "${args[@]}" \
+        -I "${private_mojo_root}:${private_mojo_root}" \
         --bytecode_path="${bytecode_path}" --generators=${generators} \
         "${file}"
   fi
