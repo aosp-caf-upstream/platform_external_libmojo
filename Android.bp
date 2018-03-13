@@ -222,9 +222,8 @@ genrule {
     ],
 }
 
-// TODO(risan): Change the name to libmojo once Android.mk is removed.
 cc_library_shared {
-    name: "libmojo_bp",
+    name: "libmojo",
 
     generated_headers: [
         "libmojo_jni_headers",
@@ -468,9 +467,8 @@ genrule {
     ],
 }
 
-// TODO(risan): Rename this after Android.mk is removed.
 java_library {
-    name: "android.mojo_bp",
+    name: "android.mojo",
 
     srcs: [
         ":libmojo_mojom_java_srcs",
