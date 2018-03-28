@@ -246,7 +246,12 @@ class {{interface|name}}_Internal {
 {%   if method.response_parameters|length %}
                 {{response_struct|name}} response = {{response_struct|name}}.deserialize(messageWithHeader.getPayload());
 {%   endif %}
-                mCallback.call({{run_callback('response', method.response_parameters)}});
+                try {
+                    mCallback.call({{run_callback('response', method.response_parameters)}});
+                } catch (RuntimeException e) {
+                    // TODO(lhchavez): Remove this hack. See b/28814913 for details.
+                    android.util.Log.wtf("{{namespace}}.{{interface.name}}", "Uncaught runtime exception", e);
+                }
                 return true;
             } catch (org.chromium.mojo.bindings.DeserializationException e) {
                 return false;
